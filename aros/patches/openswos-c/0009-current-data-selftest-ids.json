@@ -1,0 +1,17 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch",
+    "0007-aros-native-network.patch",
+    "0008-preboot-asset-load.patch"
+  ],
+  "rationale": "Make data selftest lookup IDs match the pinned JSON underscore-prefixed competition IDs. Production schema unchanged.",
+  "target": "AROS SDL3",
+  "verification": "Owned-data host selftest RED1 -> GREEN0; country graph 65/0 mismatches;  Native v11 phase C data JSON selftest RC0.",
+  "upstream_status": "local, not submitted"
+}

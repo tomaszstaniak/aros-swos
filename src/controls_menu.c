@@ -21,7 +21,7 @@
 #include "platform_sdl.h"
 #include "swos_settings.h"
 
-#include <SDL.h>
+#include "swos_sdl.h"
 #include <stdio.h>
 #include <string.h>
 

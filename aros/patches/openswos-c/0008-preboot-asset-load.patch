@@ -1,0 +1,38 @@
+diff --git a/src/file_io.c b/src/file_io.c
+index 10257db..6826e4d 100644
+--- a/src/file_io.c
++++ b/src/file_io.c
+@@ -163,10 +163,23 @@ int16_t LoadFileEx(uint8_t *filename, uint8_t *dest, uint32_t *outFileSize)
+     uint16_t tick;
+ 
+     fileSize = 0;
++#ifdef SWOS_SDL_BUILD
++    if (!filename || !dest) {
++        if (outFileSize) *outFileSize = 0;
++        return 1;
++    }
++#endif
+ 
+     for (;;) {
+         /* Direct dispatch if assetCurrentIndex == 4 */
+-        if (_assetCurrentIndex == 4) {
++        int direct = _assetCurrentIndex == 4;
++#ifdef SWOS_SDL_BUILD
++        /* Team database/custom-team lookups also run before game bootstrap.
++         * There is then no framebuffer to stage through or screen to restore.
++         * Keep the real disk/decompression path, using the caller's buffer. */
++        direct = direct || !_frontbufferBasePtr;
++#endif
++        if (direct) {
+             result = CAssetSys_DispatchGetSize(ASSET_OP_INIT_SOURCE0, 0, filename, dest, &fileSize);
+             /* The original Amiga asm disk pipeline stripped RNC headers
+              * here, but the C asset dispatch returns RAW bytes on BOTH
+@@ -204,7 +217,7 @@ int16_t LoadFileEx(uint8_t *filename, uint8_t *dest, uint32_t *outFileSize)
+              * loader wrote directly to the displayed buffer. On SDL,
+              * mirror that by stamping the displayed buffer if `dest`
+              * is the alt buffer. */
+-            if (result == 0 && (uint8_t *)_frontbufferBasePtr != dest &&
++            if (result == 0 && _frontbufferBasePtr && (uint8_t *)_frontbufferBasePtr != dest &&
+                 ((uintptr_t)dest == (uintptr_t)_frontbufferBaseAlt ||
+                  (uintptr_t)dest == _frontbufferBaseAltPtr)) {
+                 uint32_t cap = FRONTBUFFER_SIZE_TOTAL_BYTES;

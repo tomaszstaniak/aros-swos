@@ -34,14 +34,14 @@ void MatchRecord_SetArrangedByServer(int32_t on)
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
-#include <poll.h>
+#include "swos_socket_wait.h"
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
-#include <SDL.h>
+#include "swos_sdl.h"
 
 #include "build_info.h"
 #include "mm_client.h"
@@ -190,13 +190,9 @@ static void flush_now(void)
     if (s_rec.sock < 0)
         return;
     if (!s_rec.connected) {
-        struct pollfd pfd;
         int err = 0;
         socklen_t el = (socklen_t)sizeof err;
-        pfd.fd = s_rec.sock;
-        pfd.events = POLLOUT;
-        pfd.revents = 0;
-        if (poll(&pfd, 1, 0) <= 0)
+        if (swos_socket_wait(s_rec.sock, SWOS_WAIT_WRITE, 0) <= 0)
             return;                     /* still connecting */
         if (getsockopt(s_rec.sock, SOL_SOCKET, SO_ERROR, (char *)&err, &el) != 0 || err != 0) {
             drop(err ? strerror(err) : "cannot connect");
@@ -563,11 +559,7 @@ void MatchRecord_End(int32_t finished, int32_t endFrame, uint64_t finalSimHash, 
     start = SDL_GetTicks();
     while (s_rec.sock >= 0 && (s_rec.outLen > 0 || !s_rec.connected) &&
            SDL_GetTicks() - start < RECORD_END_WAIT) {
-        struct pollfd pfd;
-        pfd.fd = s_rec.sock;
-        pfd.events = POLLOUT;
-        pfd.revents = 0;
-        poll(&pfd, 1, 20);
+        swos_socket_wait(s_rec.sock, SWOS_WAIT_WRITE, 20);
         flush_now();
     }
     if (s_rec.sock >= 0) {

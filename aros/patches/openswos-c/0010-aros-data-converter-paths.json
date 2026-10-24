@@ -1,0 +1,18 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch",
+    "0007-aros-native-network.patch",
+    "0008-preboot-asset-load.patch",
+    "0009-current-data-selftest-ids.patch"
+  ],
+  "rationale": "Resolve executable and parent directories through native DOS paths for the own-data converter. Companion swosgfx path patch required.",
+  "target": "AROS SDL3",
+  "verification": "Native v11 converter compiles, links and converts own original ADFs:117Amiga files,15AGA,76team files.209 output game files compare identical to reference; reference omits ASSETS.ini installation metadata. AROS forced path helper6/6 and host reference6/6. Native first-run GUI/package integration remains open.",
+  "upstream_status": "local, not submitted"
+}

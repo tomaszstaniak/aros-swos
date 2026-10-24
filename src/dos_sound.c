@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL.h>
+#include "swos_sdl.h"
 
 #ifndef SWOS_SWITCH_BUILD
 #include <dirent.h>     /* the Switch has no folder to put a pack in: custom_scan is empty there */
@@ -369,6 +369,15 @@ static void preload(void)
     if (!s_loader)
         load_all(NULL);
 #endif
+}
+
+/* Join even an already-finished loader: its SDL handle owns native resources. */
+void DosSound_Shutdown(void)
+{
+    if (s_loader) {
+        SDL_WaitThread(s_loader, NULL);
+        s_loader = NULL;
+    }
 }
 
 /* SWOS_DOS_SOUND_TRACE=1: every sample started, on stderr. */

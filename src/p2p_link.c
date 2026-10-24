@@ -26,7 +26,7 @@
 
 #ifdef SWOS_SDL_BUILD
 
-#include <SDL.h>            /* SDL_GetTicks, SDL_Delay (the self-test) */
+#include "swos_sdl.h"            /* SDL_GetTicks, SDL_Delay (the self-test) */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,6 +47,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "swos_aros_net.h"
 #ifdef SWOS_WASM_BUILD
 #include <emscripten.h>         /* emscripten_random */
 #endif

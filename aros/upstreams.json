@@ -1,0 +1,14 @@
+{
+  "repositories": {
+    "openswos": {
+      "url": "https://github.com/angree/openswos.git",
+      "commit": "7c7bd2e6661790ef38bc40f7a2798a1fb34535bd",
+      "status": "historical C# investigation; not the selected game"
+    },
+    "openswos-c": {
+      "url": "https://github.com/benbaker76/OpenSWOS.git",
+      "commit": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d"
+    }
+  },
+  "primary": "openswos-c"
+}

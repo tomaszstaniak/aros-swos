@@ -10,7 +10,10 @@
  * macOS uses SDL_GetPrefPath when a .app launch leaves HOME unset. On the
  * Switch this header also declares SDL_NintendoSwitch_CommitSaveData, which
  * the fork puts in SDL_filesystem.h rather than a header of its own. */
-#include <SDL.h>
+#include "swos_sdl.h"
+#endif
+#ifdef __AROS__
+#include <unistd.h>
 #endif
 #include <stdarg.h>
 #include <string.h>
@@ -70,17 +73,19 @@ int atoi(const char *s) {
 #endif
 
 /* ============================================================
- * Allocation. Both backings store the block size in the first 4
- * bytes; the caller receives a pointer to the byte after that.
+ * Allocation. Both backings store the block size in a private header.
+ * SDL pads that header to preserve malloc alignment for the payload;
+ * the Amiga hardware backing keeps its original four-byte layout.
  * swos_io_free / swos_io_realloc reverse the offset to recover
  * the size that AllocMem / malloc were given.
  * ============================================================ */
 
-#define SWOS_HDR_SIZE 4u
-
 #ifdef SWOS_SDL_BUILD
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
+
+#define SWOS_HDR_SIZE ((uint32_t)_Alignof(max_align_t))
 
 void *swos_io_alloc(uint32_t sz)
 {
@@ -108,6 +113,8 @@ void swos_io_free(void *p)
 }
 
 #else  /* !SWOS_SDL_BUILD — Amiga */
+
+#define SWOS_HDR_SIZE 4u
 
 extern uint8_t *AllocMemAny(uint32_t sz);
 extern void     FreeMemAny(void *addr, uint32_t sz);
@@ -251,7 +258,23 @@ static int swos_make_dirs(const char *path)
 
 void swos_save_dir_init(void)
 {
-#if defined(SWOS_SWITCH_BUILD)
+#if defined(__AROS__)
+    /* Native AROS does not resolve Unix "."/"./" paths. Use the executable
+     * drawer for config, saves and the direct-data existence check. */
+    char *base = SDL_GetBasePath();
+    if (base && *base) {
+        snprintf(s_user_dir, sizeof s_user_dir, "%s", base);
+        size_t n = strlen(s_user_dir);
+        while (n > 1 && s_user_dir[n-1] == '/') s_user_dir[--n] = 0;
+        (void)chdir(s_user_dir);
+    } else if (!getcwd(s_user_dir, sizeof s_user_dir)) {
+        fprintf(stderr, "[paths] cannot resolve the AROS game drawer\n");
+    }
+    if (base) SDL_free(base);
+    snprintf(s_save_dir, sizeof s_save_dir, "%s/save", s_user_dir);
+    (void)swos_make_dirs(s_save_dir);
+    return;
+#elif defined(SWOS_SWITCH_BUILD)
     /* Switch: SDL_GetBasePath() is what MOUNTS the read-only content —
      * nn::fs::MountRom("rom", ...) happens inside it, on first call. Nothing
      * else mounts it, so without this every fopen("rom:/...") fails and the
@@ -455,10 +478,11 @@ int swos_io_save(const uint8_t *name, const uint8_t *buf, uint32_t size)
     FILE *f = fopen(path, "wb");
     if (!f) return 1;
     size_t put = fwrite(buf, 1, size, f);
-    fclose(f);
+    int closed = fclose(f);
+    if (put != size || closed != 0) return 1;
     /* Closed before committing — the commit requires it. */
     swos_save_commit();
-    return (put == size) ? 0 : 1;
+    return 0;
 }
 
 /* ---- Data root + save durability (see swos_io.h) -------------------- */
@@ -554,7 +578,11 @@ int swos_data_exists(const char *rel)
     const char *p = swos_data_path(rel, buf, (uint32_t)sizeof buf);
     if (p == buf)
         return 1;                       /* in the assets folder */
+#ifdef __AROS__
+    return find_nocase(s_user_dir, rel, found, (uint32_t)sizeof found) == 0;
+#else
     return find_nocase(".", rel, found, (uint32_t)sizeof found) == 0;
+#endif
 #endif
 }
 

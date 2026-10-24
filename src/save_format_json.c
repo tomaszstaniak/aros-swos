@@ -2274,28 +2274,51 @@ static void load_s16_at(const char *buf, int buflen, const char *path,
         *(int16_t *)(base + off) = (int16_t)num;
 }
 
+#if MJSON_ENABLE_NEXT
+/* mjson_next restarts its parser at the start of the array on each call.
+ * Large byte buffers (notably HIL trailing data) therefore took quadratic
+ * time to restore. Consume the direct array values in one parser pass. */
+typedef struct {
+    uint8_t *dst;
+    size_t count, limit;
+    unsigned depth;
+} ByteArrayLoad;
+
+static int load_byte_array_token(int token, const char *buf, int off, int len,
+                                 void *context)
+{
+    ByteArrayLoad *load = context;
+    if (token == '}' || token == ']') {
+        if (load->depth) --load->depth;
+        return 0;
+    }
+    if (load->depth == 1 && token != ',' && token != ':' && token != MJSON_TOK_KEY) {
+        if (load->count == load->limit) return 1;
+        if (token == MJSON_TOK_NUMBER) {
+            char number[32];
+            int n = len < (int)sizeof(number) - 1 ? len : (int)sizeof(number) - 1;
+            memcpy(number, buf + off, (size_t)n);
+            number[n] = '\0';
+            load->dst[load->count] = (uint8_t)atoi(number);
+        }
+        /* Preserve the old iterator's ordinal handling for non-number values;
+         * nested containers occupy one slot, their contents none. */
+        ++load->count;
+    }
+    if (token == '[' || token == '{') ++load->depth;
+    return 0;
+}
+#endif
+
 static void load_bytes_at(const char *buf, int buflen, const char *path,
                           uint8_t *base, size_t off, size_t len)
 {
 #if MJSON_ENABLE_NEXT
     const char *arr = NULL;
     int arr_len = 0;
-    if (mjson_find(buf, buflen, path, &arr, &arr_len) == MJSON_TOK_ARRAY) {
-        int koff, klen, voff, vlen, vt;
-        size_t i = 0;
-        int o = 0;
-        while (i < len &&
-               (o = mjson_next(arr, arr_len, o,
-                               &koff, &klen, &voff, &vlen, &vt)) != 0) {
-            if (vt == MJSON_TOK_NUMBER) {
-                char nbuf[32];
-                int n = vlen < (int)sizeof(nbuf) - 1 ? vlen : (int)sizeof(nbuf) - 1;
-                memcpy(nbuf, arr + voff, (size_t)n);
-                nbuf[n] = '\0';
-                base[off + i] = (uint8_t)atoi(nbuf);
-            }
-            i++;
-        }
+    if (len && mjson_find(buf, buflen, path, &arr, &arr_len) == MJSON_TOK_ARRAY) {
+        ByteArrayLoad load = { base + off, 0, len, 0 };
+        mjson(arr, arr_len, load_byte_array_token, &load);
     }
 #else
     (void)buf; (void)buflen; (void)path; (void)base; (void)off; (void)len;
@@ -4123,7 +4146,7 @@ int DataJson_SelfTest(void)
         while ((pos = fast_array_next(arr, al, pos, &voff, &vlen, &vt)) != 0) {
             if (vt != MJSON_TOK_OBJECT) continue;
             if (mjson_get_string(arr+voff, vlen, "$.id", idbuf, (int)sizeof idbuf) > 0
-                && strcmp(idbuf, "cupWinnersCup") == 0) {
+                && strcmp(idbuf, "_cupWinnersCup") == 0) {
                 DataJson_LoadCompetitionCup(arr+voff, vlen, &loaded, 0, strpool, (int)sizeof strpool);
                 found = 1; break;
             }
@@ -4154,7 +4177,7 @@ int DataJson_SelfTest(void)
     extern CompetitionTournament _euroCup;   /* compiled record */
     { char *tj = NULL; const char *to; int tol;
       if (dj_find_comp_record("data_json/competitions/tournaments.json", "competitions",
-                              "euroCup", &tj, &to, &tol)) {
+                              "_euroCup", &tj, &to, &tol)) {
         static CompetitionTournament tl; static char tsp[256];
         DataJson_LoadCompetitionTournament(to, tol, &tl, tsp, (int)sizeof tsp);
         free(tj);
@@ -4184,7 +4207,7 @@ int DataJson_SelfTest(void)
     extern CompetitionLeague _englishLeague;   /* compiled record */
     { char *lj = NULL; const char *lo; int lol;
       if (dj_find_comp_record("data_json/competitions/leagues.json", "leagues",
-                              "englishLeague", &lj, &lo, &lol)) {
+                              "_englishLeague", &lj, &lo, &lol)) {
         static CompetitionLeague ll; static char lsp[256];
         DataJson_LoadCompetitionLeague(lo, lol, &ll, lsp, (int)sizeof lsp);
         free(lj);

@@ -1,0 +1,38 @@
+diff --git a/tools/swosdata/cli/swosdata_cli.c b/tools/swosdata/cli/swosdata_cli.c
+index 6a0406e..0be234c 100644
+--- a/tools/swosdata/cli/swosdata_cli.c
++++ b/tools/swosdata/cli/swosdata_cli.c
+@@ -17,6 +17,9 @@
+ #include "sg_dir.h"
+ 
+ #include <stdio.h>
++#ifdef __AROS__
++#include <proto/dos.h>
++#endif
+ #include <stdlib.h>
+ #include <string.h>
+ 
+@@ -124,6 +127,10 @@ static void exe_path(const char *argv0, char *out, uint32_t cap)
+     DWORD n = GetModuleFileNameA(NULL, out, cap);
+     if (n == 0 || n >= cap)
+         snprintf(out, cap, "%s", argv0 ? argv0 : "");
++#elif defined(__AROS__)
++    char dir[1024];
++    if (NameFromLock(GetProgramDir(), (STRPTR)dir, sizeof dir))
++        Sg_PathJoin(out, cap, dir, argv0 ? (const char *)FilePart((CONST_STRPTR)argv0) : "swosdata");
+ #elif defined(__APPLE__)
+     char buf[1024];
+     uint32_t size = sizeof buf;
+@@ -143,6 +150,12 @@ static void exe_path(const char *argv0, char *out, uint32_t cap)
+ static int32_t parent_dir(char *p)
+ {
+     char *slash = strrchr(p, '/');
++#ifdef __AROS__
++    if (!slash) {
++        char *colon = strrchr(p, ':');
++        if (colon && colon[1]) { colon[1] = 0; return 1; }
++    }
++#endif
+ #ifdef _WIN32
+     char *back = strrchr(p, '\\');
+     if (back && (!slash || back > slash))

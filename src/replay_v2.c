@@ -18,7 +18,7 @@
 #ifdef SWOS_SDL_BUILD
 
 #include "replay_v2.h"
-#include <SDL.h>            /* the checkpoint's thread */
+#include "swos_sdl.h"            /* the checkpoint's thread */
 #include "dos_sound.h"
 #include "audio_sfx_filter.h"
 #include "build_info.h"
@@ -647,7 +647,11 @@ static uint8_t *build_meta(void)
  * where the highlights menu lists it. */
 static void file_path(const char *name, char *out, size_t cap)
 {
-    if (strchr(name, '/') || strchr(name, '\\'))
+    if (strchr(name, '/') || strchr(name, '\\')
+#ifdef __AROS__
+        || strchr(name, ':')  /* volume/assign paths, including :name */
+#endif
+       )
         snprintf(out, cap, "%s", name);
     else
         snprintf(out, cap, "%s/%s", swos_save_dir(), name);
@@ -950,6 +954,12 @@ static void ckpt_join(void)
         SDL_WaitThread(s_ckptThread, NULL);
         s_ckptThread = NULL;
     }
+}
+
+/* The checkpoint owns a complete immutable snapshot; let its write finish. */
+void ReplayRec_WaitCheckpoint(void)
+{
+    ckpt_join();
 }
 
 void ReplayRec_Checkpoint(void)

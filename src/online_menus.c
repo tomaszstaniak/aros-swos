@@ -49,7 +49,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <SDL.h>                /* SDL_GetTicks, for a test knob */
+#include "swos_sdl.h"                /* SDL_GetTicks, for a test knob */
 
 #define SWOS2020_MENU(name) "swos2020/" #name
 

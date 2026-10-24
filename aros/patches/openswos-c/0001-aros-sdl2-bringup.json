@@ -1,0 +1,8 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [],
+  "rationale": "C11 label statements for GCC10; CPU framebuffer default and SDL environment API; native AROS drawer paths instead of unsupported Unix dot paths; platform build identity. No simulation changes.",
+  "target": "x86_64 AROS ABIv11, SDL2 reference backend; final backend remains SDL3",
+  "verification": "Full x86_64 v11 and host macOS SDL2 offline compile/link; exact isolated patch reconstruction; native --version RC0 and Amiga intro render. Native one-second probe confirms SDK SDL2 performance-counter delta0/RC10 and SDL3 delta1202618 at1193180Hz/RC0. Menu/match and SDL3 game acceptance pending.",
+  "upstream_status": "local, not submitted"
+}

@@ -1,0 +1,24 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch",
+    "0007-aros-native-network.patch",
+    "0008-preboot-asset-load.patch",
+    "0009-current-data-selftest-ids.patch",
+    "0010-aros-data-converter-paths.patch",
+    "0011-sdl-heap-alignment.patch",
+    "0012-linear-json-byte-load.patch",
+    "0013-aros-pthread-socket-mappings.patch",
+    "0014-aros-sdl-environment.patch",
+    "0015-aros-native-worker-shutdown.patch"
+  ],
+  "rationale": "Native AROS sockets require a registered pthread and its TLS/destructor. SDL DOS worker tasks resolve pthread_self to the main thread and alias its bsdsocket context. Use joinable pthread report workers on AROS; preserve other platform behavior and existing retained worker lifecycle. No simulation changes.",
+  "target": "AROS native SDL3, x86_64 v11/v1 and AArch64 v1",
+  "verification": "Native v11 production-linked regression creates a live main UDP socket before a real report upload. SDL baseline: foreign task aliases main TLS once, no socket/send failure, RC1. pthread candidate: alias count0, main socket closes successfully, upload completed and acknowledged by owned local receiver after6sec, failures0. All complete network-enabled target builds passed; collected log validation and patch reconstruction recorded separately.",
+  "upstream_status": "local, not submitted"
+}

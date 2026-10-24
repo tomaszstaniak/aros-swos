@@ -1,0 +1,14 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch"
+  ],
+  "rationale": "Do not acknowledge a partial or close-failed save as successful. Both production low-level paths now check full byte count and fclose before success/persistence commit. No save schema change.",
+  "target": "portable SDL I/O (including AROS)",
+  "verification": "Production real-file writer injection RED -> GREEN for complete/partial/close-failed writes. Native v11 production tactics/binary write and fresh-process read RC0; separate cold-restart SYS read RC0. Normal host menu career creation/save/reload succeeded; native real career serializer load/re-save RC0 (semantic comparison tracked separately).",
+  "upstream_status": "local, not submitted"
+}

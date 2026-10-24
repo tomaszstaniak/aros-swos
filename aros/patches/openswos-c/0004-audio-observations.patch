@@ -1,0 +1,91 @@
+diff --git a/src/audio_sdl.c b/src/audio_sdl.c
+index b567355..aa4ae14 100644
+--- a/src/audio_sdl.c
++++ b/src/audio_sdl.c
+@@ -61,6 +61,9 @@ static int               s_master_volume;   /* 0..64, scales final output */
+  * each lane after the mix. --audio=stereo restores the original Amiga
+  * panning. */
+ static int               s_audio_mono = 1;
++/* Opt-in observations, not hardware underrun counters. Access under s_mtx. */
++static int s_audio_diagnostics;
++static unsigned long long s_queue_checks, s_empty_checks, s_silence_pads;
+ 
+ /* Song looping. Most SWOS songs (the menus) loop internally, but some — notably
+  * the HERO title song used in arcade attract — have no loop-back and just end.
+@@ -137,6 +140,8 @@ static int audio_pump_thread(void *unused);
+ int AudioSDL_Init(int mono)
+ {
+     s_audio_mono = mono ? 1 : 0;
++    s_audio_diagnostics = SDL_getenv("SWOS_AUDIO_DIAGNOSTICS") != NULL;
++    s_queue_checks = s_empty_checks = s_silence_pads = 0;
+ #if SWOS_AUDIO_DISABLED
+     /* Audio disabled at compile time — return success so platform init
+      * continues; s_audio_dev stays 0 and AudioSDL_Tick early-returns. */
+@@ -215,6 +220,15 @@ void AudioSDL_Shutdown(void)
+     }
+     if (s_audio_dev) {
+         SDL_PauseAudioDevice(s_audio_dev, 1);
++        if (s_audio_diagnostics) {
++            SDL_LockMutex(s_mtx);
++            fprintf(stderr, "[audio] queue observations: checks=%llu empty=%llu "
++                            "silence-pads=%llu (%llu ms); target=%dms; "
++                            "empty includes startup/clears, not proven AHI underruns\n",
++                    s_queue_checks, s_empty_checks, s_silence_pads,
++                    s_silence_pads * 20, QUEUE_TARGET_MS);
++            SDL_UnlockMutex(s_mtx);
++        }
+         SDL_ClearQueuedAudio(s_audio_dev);
+         SDL_CloseAudioDevice(s_audio_dev);
+         s_audio_dev = 0;
+@@ -267,6 +281,10 @@ void AudioSDL_Tick(void)
+      * both calling RJP1_HandleTick for the same tick (which would
+      * double-step the song state). */
+     Uint32 queued_bytes = SDL_GetQueuedAudioSize(s_audio_dev);
++    if (s_audio_diagnostics) {
++        ++s_queue_checks;
++        if (!queued_bytes) ++s_empty_checks;
++    }
+     if (queued_bytes >= target_bytes) {
+         SDL_UnlockMutex(s_mtx);
+         return;
+@@ -408,6 +426,7 @@ void AudioSDL_Tick(void)
+     if (queued_bytes + out_bytes < target_bytes) {
+         SDL_memset(s_out_buf, 0, (size_t)out_bytes);
+         SDL_QueueAudio(s_audio_dev, s_out_buf, out_bytes);
++        if (s_audio_diagnostics) ++s_silence_pads;
+     }
+ #endif
+ 
+diff --git a/src/swos_sdl3.c b/src/swos_sdl3.c
+index 9cba9c9..337a21b 100644
+--- a/src/swos_sdl3.c
++++ b/src/swos_sdl3.c
+@@ -3,6 +3,7 @@
+ #define SWOS_SDL3_IMPLEMENTATION
+ #include "swos_sdl.h"
+ #include <limits.h>
++#include <stdio.h>
+ #include <string.h>
+ char *SwosSdlBasePath(void) {
+   const char *p = SDL_GetBasePath();
+@@ -189,6 +190,20 @@ SDL_AudioDeviceID SwosSdlOpenAudio(const char *name, int capture,
+                                      NULL, NULL);
+   if (!output)
+     return 0;
++  SDL_AudioSpec physical;
++  int frames = 0;
++  SDL_AudioDeviceID device = SDL_GetAudioStreamDevice(output);
++  if (SDL_GetAudioDeviceFormat(device, &physical, &frames)) {
++    const char *hint = SDL_GetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES);
++    fprintf(stderr, "[audio] driver=%s source=%dHz/%dch device=%dHz/%dch "
++                    "frames=%d (%.2fms) sample-frames-hint=%s\n",
++            SDL_GetCurrentAudioDriver(), spec.freq, spec.channels,
++            physical.freq, physical.channels, frames,
++            physical.freq > 0 ? frames * 1000.0 / physical.freq : 0.0,
++            hint && *hint ? hint : "default");
++  } else {
++    fprintf(stderr, "[audio] device format query failed: %s\n", SDL_GetError());
++  }
+   if (got)
+     *got = *want;
+   return SDL_GetAudioStreamDevice(output);

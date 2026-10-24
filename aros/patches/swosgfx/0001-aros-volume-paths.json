@@ -1,0 +1,8 @@
+{
+  "base": "f55434620f82f2e469114f81d8d5e0a802d97acb",
+  "rationale": "AROS volume roots join without slash; dot base means current drawer without unsupported ./ prefix.",
+  "upstream_status": "local, not submitted",
+  "predecessors": [],
+  "target": "AROS native data converter path joining",
+  "verification": "Forced-AROS path helper6/6 and host-reference6/6; native v11 ADF conversion completes,209 output game files identical to reference (ASSETS.ini metadata absent in reference only)."
+}

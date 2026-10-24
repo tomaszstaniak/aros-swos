@@ -1,0 +1,1231 @@
+diff --git a/include/crt_effects.h b/include/crt_effects.h
+index e5b5932..a14751b 100644
+--- a/include/crt_effects.h
++++ b/include/crt_effects.h
+@@ -21,7 +21,7 @@
+ 
+ /* <SDL.h>, NOT <SDL2/SDL.h>: the Switch SDL fork has no SDL2/ prefix on its
+  * include path, and this is the convention platform_sdl.h already follows. */
+-#include <SDL.h>
++#include "swos_sdl.h"
+ #include <stdint.h>
+ 
+ /* [video] crt_mask */
+diff --git a/include/platform_sdl.h b/include/platform_sdl.h
+index 00188fc..497264b 100644
+--- a/include/platform_sdl.h
++++ b/include/platform_sdl.h
+@@ -8,7 +8,7 @@
+ #ifndef PLATFORM_SDL_H
+ #define PLATFORM_SDL_H
+ 
+-#include <SDL.h>
++#include "swos_sdl.h"
+ 
+ /* Native SWOS resolution. Matches display.h. */
+ #define PLATFORM_SCREEN_W 336
+diff --git a/include/swos_sdl.h b/include/swos_sdl.h
+new file mode 100644
+index 0000000..6933db1
+--- /dev/null
++++ b/include/swos_sdl.h
+@@ -0,0 +1,297 @@
++#ifndef SWOS_SDL_H
++#define SWOS_SDL_H
++/* SDL2 reference or native SDL3 boundary. No SDL2 runtime is used by SDL3. */
++#ifndef SWOS_SDL3_BUILD
++#include <SDL.h>
++#define SWOS_KEY_SYM(e) ((e).keysym.sym)
++#define SWOS_KEY_SCAN(e) ((e).keysym.scancode)
++#define SWOS_KEY_MOD(e) ((e).keysym.mod)
++#define SWOS_KEY_DOWN(e) ((e).state)
++#define SWOS_WINDOW_CASES case SDL_WINDOWEVENT:
++#define SWOS_WINDOW_KIND(e) ((e).window.event)
++#define SWOS_WINDOW_FIRST SDL_WINDOWEVENT
++#define SWOS_WINDOW_LAST SDL_WINDOWEVENT
++#define SWOS_BPP(s) ((s)->format->BytesPerPixel)
++#define SWOS_PALETTE(s) ((s)->format->palette)
++#else
++#ifndef SDL_ENABLE_OLD_NAMES
++#define SDL_ENABLE_OLD_NAMES
++#endif
++#include <SDL3/SDL.h>
++#define SDL_MAIN_HANDLED
++#include <SDL3/SDL_main.h>
++/* Preserve the existing call sites' error convention (0 succeeds). Only the
++ * APIs actually used by this game are adapted; this is not SDL2 emulation. */
++#define SDL_INIT_TIMER 0u
++#define SDL_WINDOW_SHOWN 0u
++#define SDL_WINDOW_FULLSCREEN_DESKTOP SDL_WINDOW_FULLSCREEN
++#define SDL_RENDERER_SOFTWARE 1u
++#define SDL_RENDERER_ACCELERATED 2u
++#define SDL_RENDERER_PRESENTVSYNC 4u
++#define SDL_RENDERER_TARGETTEXTURE 8u
++#define SDL_PRESSED 1
++#define SDL_RELEASED 0
++#define SDL_ENABLE 1
++#define SDL_DISABLE 0
++#define SDL_HINT_RENDER_SCALE_QUALITY "SWOS_LEGACY_SCALE_QUALITY"
++#define SWOS_KEY_SYM(e) ((e).key)
++#define SWOS_KEY_SCAN(e) ((e).scancode)
++#define SWOS_KEY_MOD(e) ((e).mod)
++#define SWOS_KEY_DOWN(e) ((e).down)
++#define SWOS_WINDOW_CASES                                                      \
++  case SDL_EVENT_WINDOW_CLOSE_REQUESTED:                                       \
++  case SDL_EVENT_WINDOW_FOCUS_LOST:                                            \
++  case SDL_EVENT_WINDOW_FOCUS_GAINED:
++#define SWOS_WINDOW_KIND(e) ((e).type)
++#define SDL_WINDOWEVENT_CLOSE SDL_EVENT_WINDOW_CLOSE_REQUESTED
++#define SDL_WINDOWEVENT_FOCUS_LOST SDL_EVENT_WINDOW_FOCUS_LOST
++#define SDL_WINDOWEVENT_FOCUS_GAINED SDL_EVENT_WINDOW_FOCUS_GAINED
++#define SWOS_WINDOW_FIRST SDL_EVENT_WINDOW_FIRST
++#define SWOS_WINDOW_LAST SDL_EVENT_WINDOW_LAST
++#define SWOS_BPP(s) SDL_BYTESPERPIXEL((s)->format)
++#define SWOS_PALETTE(s) SDL_GetSurfacePalette(s)
++/* SDL3 moved controller event members to g* (device IDs are mapped below). */
++#define cbutton gbutton
++#define caxis gaxis
++#define cdevice gdevice
++
++typedef struct {
++  int w, h, refresh_rate;
++} SwosDisplayMode;
++typedef struct {
++  const char *name;
++  Uint32 flags;
++} SwosRendererInfo;
++typedef struct {
++  int freq;
++  SDL_AudioFormat format;
++  Uint8 channels;
++  Uint16 samples;
++  void *callback, *userdata;
++} SwosAudioSpec;
++typedef struct {
++  int needed, len, len_mult, len_cvt;
++  Uint8 *buf;
++  SDL_AudioSpec src, dst;
++} SwosAudioCVT;
++int SwosSdlInit(Uint32 flags);
++int SwosSdlInitSubSystem(Uint32 flags);
++SDL_DisplayID SwosSdlDisplayId(int index);
++int SwosSdlNumDisplays(void);
++int SwosSdlDisplayBounds(int index, SDL_Rect *r);
++int SwosSdlDisplayUsableBounds(int index, SDL_Rect *r);
++int SwosSdlCurrentDisplayMode(int index, SwosDisplayMode *m);
++int SwosSdlDesktopDisplayMode(int index, SwosDisplayMode *m);
++int SwosSdlWindowDisplayIndex(SDL_Window *w);
++SDL_Window *SwosSdlCreateWindow(const char *title, int x, int y, int w, int h,
++                                Uint32 flags);
++SDL_Renderer *SwosSdlCreateRenderer(SDL_Window *w, int index, Uint32 flags);
++int SwosSdlRendererInfo(SDL_Renderer *r, SwosRendererInfo *i);
++int SwosSdlRenderCopy(SDL_Renderer *, SDL_Texture *, const SDL_Rect *,
++                      const SDL_Rect *);
++int SwosSdlRenderCopyF(SDL_Renderer *, SDL_Texture *, const SDL_Rect *,
++                       const SDL_FRect *);
++int SwosSdlReadPixels(SDL_Renderer *, const SDL_Rect *, Uint32, void *, int);
++int SwosSdlPollEvent(SDL_Event *);
++int SwosSdlNumJoysticks(void);
++SDL_JoystickID SwosSdlJoystickId(int index);
++SDL_Gamepad *SwosSdlOpenGamepad(int index);
++SDL_Joystick *SwosSdlOpenJoystick(int index);
++const char *SwosSdlJoystickNameForIndex(int index);
++bool SwosSdlIsGamepad(int index);
++int SwosSdlAttachVirtual(SDL_JoystickType, int, int, int);
++SDL_AudioDeviceID SwosSdlOpenAudio(const char *, int, const SwosAudioSpec *,
++                                   SwosAudioSpec *, int);
++void SwosSdlPauseAudio(SDL_AudioDeviceID, int);
++void SwosSdlCloseAudio(SDL_AudioDeviceID);
++int SwosSdlQueueAudio(SDL_AudioDeviceID, const void *, Uint32);
++Uint32 SwosSdlQueuedAudio(SDL_AudioDeviceID);
++void SwosSdlClearAudio(SDL_AudioDeviceID);
++SwosAudioSpec *SwosSdlLoadWav(const char *, SwosAudioSpec *, Uint8 **,
++                              Uint32 *);
++int SwosSdlBuildAudioCvt(SwosAudioCVT *, SDL_AudioFormat, Uint8, int,
++                         SDL_AudioFormat, Uint8, int);
++int SwosSdlConvertAudio(SwosAudioCVT *);
++static inline int SwosSdlLogicalSize(SDL_Renderer *r, int w, int h) {
++  return SDL_SetRenderLogicalPresentation(
++             r, w, h,
++             w && h ? SDL_LOGICAL_PRESENTATION_LETTERBOX
++                    : SDL_LOGICAL_PRESENTATION_DISABLED)
++             ? 0
++             : -1;
++}
++static inline void SwosSdlGetLogicalSize(SDL_Renderer *r, int *w, int *h) {
++  SDL_RendererLogicalPresentation m;
++  SDL_GetRenderLogicalPresentation(r, w, h, &m);
++}
++static inline int SwosSdlTryLock(SDL_Mutex *m) {
++  return SDL_TryLockMutex(m) ? 0 : 1;
++}
++static inline SDL_Scancode SwosSdlScancode(SDL_Keycode k) {
++  return SDL_GetScancodeFromKey(k, NULL);
++}
++static inline int SwosSdlShowCursor(int n) {
++  bool old = SDL_CursorVisible();
++  if (n >= 0) {
++    if (n)
++      SDL_ShowCursor();
++    else
++      SDL_HideCursor();
++  }
++  return old ? 1 : 0;
++}
++static inline Uint8 SwosSdlEventState(Uint32 e, int n) {
++  bool old = SDL_EventEnabled(e);
++  if (n >= 0)
++    SDL_SetEventEnabled(e, n != 0);
++  return old ? 1 : 0;
++}
++static inline SDL_Surface *SwosSdlSurfaceFrom(void *p, int w, int h, int depth,
++                                              int pitch, Uint32 format) {
++  (void)depth;
++  return SDL_CreateSurfaceFrom(w, h, format, p, pitch);
++}
++char *SwosSdlBasePath(void);
++SDL_Texture *SwosSdlCreateTexture(SDL_Renderer *, SDL_PixelFormat,
++                                  SDL_TextureAccess, int, int);
++static inline int SwosSdlLockTexture(SDL_Texture *t, const SDL_Rect *r,
++                                     void **p, int *pitch) {
++  return SDL_LockTexture(t, r, p, pitch) ? 0 : -1;
++}
++
++static inline int SwosSdlSetEnv(const char *n, const char *v, int overwrite) {
++  int rc = SDL_setenv_unsafe(n, v, overwrite);
++  if (rc == 0 &&
++      !SDL_SetEnvironmentVariable(SDL_GetEnvironment(), n, v, overwrite != 0))
++    return -1;
++  return rc;
++}
++static inline int SwosSdlOutputSize(SDL_Renderer *r, int *w, int *h) {
++  SDL_Texture *t = SDL_GetRenderTarget(r);
++  if (t) {
++    float tw, th;
++    if (!SDL_GetTextureSize(t, &tw, &th))
++      return -1;
++    if (w)
++      *w = (int)tw;
++    if (h)
++      *h = (int)th;
++    return 0;
++  }
++  return SDL_GetRenderOutputSize(r, w, h) ? 0 : -1;
++}
++static inline int SwosSdlSetTarget(SDL_Renderer *r, SDL_Texture *t) {
++  return SDL_SetRenderTarget(r, t) ? 0 : -1;
++}
++static inline int SwosSdlVirtualButton(SDL_Joystick *j, int n, Uint8 v) {
++  return SDL_SetJoystickVirtualButton(j, n, v != 0) ? 0 : -1;
++}
++
++#ifndef SWOS_SDL3_IMPLEMENTATION
++#undef SDL_CreateTexture
++#define SDL_CreateTexture SwosSdlCreateTexture
++#undef SDL_LockTexture
++#define SDL_LockTexture SwosSdlLockTexture
++#undef SDL_GetBasePath
++#define SDL_GetBasePath SwosSdlBasePath
++#undef SDL_setenv
++#define SDL_setenv SwosSdlSetEnv
++#undef SDL_GetRendererOutputSize
++#define SDL_GetRendererOutputSize SwosSdlOutputSize
++#undef SDL_SetRenderTarget
++#define SDL_SetRenderTarget SwosSdlSetTarget
++#undef SDL_JoystickSetVirtualButton
++#define SDL_JoystickSetVirtualButton SwosSdlVirtualButton
++#undef SDL_AudioSpec
++#define SDL_AudioSpec SwosAudioSpec
++#undef SDL_AudioCVT
++#define SDL_AudioCVT SwosAudioCVT
++#undef SDL_DisplayMode
++#define SDL_DisplayMode SwosDisplayMode
++#undef SDL_RendererInfo
++#define SDL_RendererInfo SwosRendererInfo
++#undef SDL_Init
++#define SDL_Init SwosSdlInit
++#undef SDL_InitSubSystem
++#define SDL_InitSubSystem SwosSdlInitSubSystem
++#undef SDL_GetNumVideoDisplays
++#define SDL_GetNumVideoDisplays SwosSdlNumDisplays
++#undef SDL_GetDisplayBounds
++#define SDL_GetDisplayBounds SwosSdlDisplayBounds
++#undef SDL_GetDisplayUsableBounds
++#define SDL_GetDisplayUsableBounds SwosSdlDisplayUsableBounds
++#undef SDL_GetCurrentDisplayMode
++#define SDL_GetCurrentDisplayMode SwosSdlCurrentDisplayMode
++#undef SDL_GetDesktopDisplayMode
++#define SDL_GetDesktopDisplayMode SwosSdlDesktopDisplayMode
++#undef SDL_GetWindowDisplayIndex
++#define SDL_GetWindowDisplayIndex SwosSdlWindowDisplayIndex
++#undef SDL_CreateWindow
++#define SDL_CreateWindow SwosSdlCreateWindow
++#undef SDL_CreateRenderer
++#define SDL_CreateRenderer SwosSdlCreateRenderer
++#undef SDL_GetRendererInfo
++#define SDL_GetRendererInfo SwosSdlRendererInfo
++#undef SDL_RenderCopy
++#define SDL_RenderCopy SwosSdlRenderCopy
++#undef SDL_RenderCopyF
++#define SDL_RenderCopyF SwosSdlRenderCopyF
++#undef SDL_RenderReadPixels
++#define SDL_RenderReadPixels SwosSdlReadPixels
++#undef SDL_RenderSetLogicalSize
++#define SDL_RenderSetLogicalSize SwosSdlLogicalSize
++#undef SDL_RenderGetLogicalSize
++#define SDL_RenderGetLogicalSize SwosSdlGetLogicalSize
++#undef SDL_TryLockMutex
++#define SDL_TryLockMutex SwosSdlTryLock
++#undef SDL_GetScancodeFromKey
++#define SDL_GetScancodeFromKey SwosSdlScancode
++#undef SDL_ShowCursor
++#define SDL_ShowCursor SwosSdlShowCursor
++#undef SDL_EventState
++#define SDL_EventState SwosSdlEventState
++#undef SDL_CreateRGBSurfaceWithFormatFrom
++#define SDL_CreateRGBSurfaceWithFormatFrom SwosSdlSurfaceFrom
++#undef SDL_PollEvent
++#define SDL_PollEvent SwosSdlPollEvent
++#undef SDL_NumJoysticks
++#define SDL_NumJoysticks SwosSdlNumJoysticks
++#undef SDL_JoystickGetDeviceInstanceID
++#define SDL_JoystickGetDeviceInstanceID SwosSdlJoystickId
++#undef SDL_GameControllerOpen
++#define SDL_GameControllerOpen SwosSdlOpenGamepad
++#undef SDL_JoystickOpen
++#define SDL_JoystickOpen SwosSdlOpenJoystick
++#undef SDL_JoystickNameForIndex
++#define SDL_JoystickNameForIndex SwosSdlJoystickNameForIndex
++#undef SDL_IsGameController
++#define SDL_IsGameController SwosSdlIsGamepad
++#undef SDL_JoystickAttachVirtual
++#define SDL_JoystickAttachVirtual SwosSdlAttachVirtual
++#undef SDL_OpenAudioDevice
++#define SDL_OpenAudioDevice SwosSdlOpenAudio
++#undef SDL_PauseAudioDevice
++#define SDL_PauseAudioDevice SwosSdlPauseAudio
++#undef SDL_CloseAudioDevice
++#define SDL_CloseAudioDevice SwosSdlCloseAudio
++#undef SDL_QueueAudio
++#define SDL_QueueAudio SwosSdlQueueAudio
++#undef SDL_GetQueuedAudioSize
++#define SDL_GetQueuedAudioSize SwosSdlQueuedAudio
++#undef SDL_ClearQueuedAudio
++#define SDL_ClearQueuedAudio SwosSdlClearAudio
++#undef SDL_LoadWAV
++#define SDL_LoadWAV SwosSdlLoadWav
++#undef SDL_FreeWAV
++#define SDL_FreeWAV SDL_free
++#undef SDL_BuildAudioCVT
++#define SDL_BuildAudioCVT SwosSdlBuildAudioCvt
++#undef SDL_ConvertAudio
++#define SDL_ConvertAudio SwosSdlConvertAudio
++#undef SDL_AUDIO_ALLOW_FREQUENCY_CHANGE
++#define SDL_AUDIO_ALLOW_FREQUENCY_CHANGE 1
++#undef SDL_AUDIO_ALLOW_SAMPLES_CHANGE
++#define SDL_AUDIO_ALLOW_SAMPLES_CHANGE 2
++#endif /* call-site names */
++#endif
++#endif
+diff --git a/src/assets_check.c b/src/assets_check.c
+index 7c47657..fc8a2d7 100644
+--- a/src/assets_check.c
++++ b/src/assets_check.c
+@@ -19,7 +19,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <sys/stat.h>
+-#include <SDL.h>
++#include "swos_sdl.h"
+ 
+ #include "assets_check.h"
+ #include "assets_ini.h"
+diff --git a/src/audio_sdl.c b/src/audio_sdl.c
+index 5a56324..b567355 100644
+--- a/src/audio_sdl.c
++++ b/src/audio_sdl.c
+@@ -25,7 +25,7 @@
+ #include "dos_music.h"
+ #include "music_stream.h"
+ 
+-#include <SDL.h>
++#include "swos_sdl.h"
+ #include <stdio.h>
+ #include <string.h>
+ 
+diff --git a/src/controls_menu.c b/src/controls_menu.c
+index b1e8fb1..6604cef 100644
+--- a/src/controls_menu.c
++++ b/src/controls_menu.c
+@@ -21,7 +21,7 @@
+ #include "platform_sdl.h"
+ #include "swos_settings.h"
+ 
+-#include <SDL.h>
++#include "swos_sdl.h"
+ #include <stdio.h>
+ #include <string.h>
+ 
+diff --git a/src/dos_sound.c b/src/dos_sound.c
+index 545b3b3..9ba0e8e 100644
+--- a/src/dos_sound.c
++++ b/src/dos_sound.c
+@@ -24,7 +24,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <SDL.h>
++#include "swos_sdl.h"
+ 
+ #ifndef SWOS_SWITCH_BUILD
+ #include <dirent.h>     /* the Switch has no folder to put a pack in: custom_scan is empty there */
+diff --git a/src/fade.c b/src/fade.c
+index 6ce4bc6..21665c2 100644
+--- a/src/fade.c
++++ b/src/fade.c
+@@ -8,7 +8,7 @@
+ 
+ #ifdef SWOS_SDL_BUILD
+ #include "platform_sdl.h"
+-#include <SDL.h>
++#include "swos_sdl.h"
+ #ifdef SWOS_WASM_BUILD
+ #include <emscripten.h>
+ #endif
+diff --git a/src/input_sdl.c b/src/input_sdl.c
+index 2d88fce..1210e7e 100644
+--- a/src/input_sdl.c
++++ b/src/input_sdl.c
+@@ -24,7 +24,7 @@
+  */
+ 
+ #include "platform_sdl.h"
+-#include <SDL.h>
++#include "swos_sdl.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -647,14 +647,14 @@ void InputSDL_HandleEvent(const SDL_Event *e)
+     case SDL_KEYDOWN: {
+         /* The CONTROLS menu is waiting for a key: this is it. */
+         if (s_capture) {
+-            if (e->key.repeat == 0 && e->key.keysym.scancode != SDL_SCANCODE_UNKNOWN) {
+-                s_captured = e->key.keysym.scancode;
++            if (e->key.repeat == 0 && SWOS_KEY_SCAN(e->key) != SDL_SCANCODE_UNKNOWN) {
++                s_captured = SWOS_KEY_SCAN(e->key);
+                 s_capture = 0;
+             }
+             break;
+         }
+         /* One of the player's own keys ([input] key_*): a control, and nothing else. */
+-        int act = bound_action(e->key.keysym.scancode);
++        int act = bound_action(SWOS_KEY_SCAN(e->key));
+         if (act >= 0) {
+             static const SDL_Keycode arrow[4] = { SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT };
+             if (act == BIND_FIRE) {
+@@ -667,7 +667,7 @@ void InputSDL_HandleEvent(const SDL_Event *e)
+             }
+             break;
+         }
+-        int a = sdl_to_amiga(e->key.keysym.sym);
++        int a = sdl_to_amiga(SWOS_KEY_SYM(e->key));
+         /* Arrow keys drive joy1Dat directly (s_kbd_up/down/left/right
+          * below) so we DON'T also push their Amiga scancodes into
+          * keyBuffer — `GetKey()` then `keycodeLut` maps the arrow
+@@ -681,10 +681,10 @@ void InputSDL_HandleEvent(const SDL_Event *e)
+          * fires bench1 every time the keypress lands in keyBuffer.
+          * Menu navigation still works because the joystick path
+          * drives menuControlsDirection from pl1Direction. */
+-        int is_movement_arrow = (e->key.keysym.sym == SDLK_UP   ||
+-                                  e->key.keysym.sym == SDLK_DOWN ||
+-                                  e->key.keysym.sym == SDLK_LEFT ||
+-                                  e->key.keysym.sym == SDLK_RIGHT);
++        int is_movement_arrow = (SWOS_KEY_SYM(e->key) == SDLK_UP   ||
++                                  SWOS_KEY_SYM(e->key) == SDLK_DOWN ||
++                                  SWOS_KEY_SYM(e->key) == SDLK_LEFT ||
++                                  SWOS_KEY_SYM(e->key) == SDLK_RIGHT);
+         /* Alt is dropped from the input layer entirely. The OS owns
+          * Alt-Tab and Alt+space (window menu) and these complete in
+          * orders SDL can't always linearise — the Alt KEYDOWN reaches
+@@ -694,8 +694,8 @@ void InputSDL_HandleEvent(const SDL_Event *e)
+          * role is still covered by RCTRL / LCTRL / SPACE / ENTER, and
+          * Alt+Enter for fullscreen reads KMOD_ALT off the modifier mask
+          * (not our keyState), so it keeps working. */
+-        int is_alt = (e->key.keysym.sym == SDLK_LALT ||
+-                      e->key.keysym.sym == SDLK_RALT);
++        int is_alt = (SWOS_KEY_SYM(e->key) == SDLK_LALT ||
++                      SWOS_KEY_SYM(e->key) == SDLK_RALT);
+         /* A netplay match: no key reaches the game's own keyboard state at all.
+          * keyBuffer feeds GetKey/MainKeysCheck and keyState is polled directly,
+          * and either one acted on THIS machine only -- Q called the bench, S the
+@@ -706,7 +706,7 @@ void InputSDL_HandleEvent(const SDL_Event *e)
+         extern int32_t NetplayMatch_Enabled(void);
+         extern void    NetplayMatch_RequestLeave(void);
+         int in_match = NetplayMatch_Enabled();
+-        if (in_match && e->key.keysym.sym == SDLK_ESCAPE && e->key.repeat == 0)
++        if (in_match && SWOS_KEY_SYM(e->key) == SDLK_ESCAPE && e->key.repeat == 0)
+             NetplayMatch_RequestLeave();
+         if (is_alt || in_match) {
+             /* Don't record keyState, don't push to keyBuffer, don't
+@@ -729,10 +729,10 @@ void InputSDL_HandleEvent(const SDL_Event *e)
+              * FIFO so GetKey doesn't see them as menu/hotkey input. */
+             _keyState[a] = 1;
+         }
+-        switch (e->key.keysym.sym) {
++        switch (SWOS_KEY_SYM(e->key)) {
+         case SDLK_UP: case SDLK_DOWN: case SDLK_LEFT: case SDLK_RIGHT:
+             if (e->key.repeat == 0)
+-                kbd_arrow(e->key.keysym.sym, 1);
++                kbd_arrow(SWOS_KEY_SYM(e->key), 1);
+             break;
+         case SDLK_RCTRL:
+             s_kbd_fire_keys |= KBD_FIRE_RCTRL;
+@@ -789,7 +789,7 @@ void InputSDL_HandleEvent(const SDL_Event *e)
+         {
+             int i, act = -1;
+             for (i = 0; i < BIND_COUNT; i++)
+-                if (s_bind[i] != SDL_SCANCODE_UNKNOWN && s_bind[i] == e->key.keysym.scancode)
++                if (s_bind[i] != SDL_SCANCODE_UNKNOWN && s_bind[i] == SWOS_KEY_SCAN(e->key))
+                     act = i;
+             if (act >= 0) {
+                 static const SDL_Keycode arrow[4] = { SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT };
+@@ -803,13 +803,13 @@ void InputSDL_HandleEvent(const SDL_Event *e)
+                     break;
+             }
+         }
+-        int a = sdl_to_amiga(e->key.keysym.sym);
+-        int is_alt = (e->key.keysym.sym == SDLK_LALT ||
+-                      e->key.keysym.sym == SDLK_RALT);
++        int a = sdl_to_amiga(SWOS_KEY_SYM(e->key));
++        int is_alt = (SWOS_KEY_SYM(e->key) == SDLK_LALT ||
++                      SWOS_KEY_SYM(e->key) == SDLK_RALT);
+         if (!is_alt && a >= 0) _keyState[a] = 0;
+-        switch (e->key.keysym.sym) {
++        switch (SWOS_KEY_SYM(e->key)) {
+         case SDLK_UP: case SDLK_DOWN: case SDLK_LEFT: case SDLK_RIGHT:
+-            kbd_arrow(e->key.keysym.sym, 0);
++            kbd_arrow(SWOS_KEY_SYM(e->key), 0);
+             break;
+         /* Clear only THIS key's bit — fire stays down while another
+          * fire key is still held (see s_kbd_fire_keys). */
+@@ -1185,9 +1185,9 @@ static void selftest_key(SDL_Scancode sc, SDL_Keycode sym, int down)
+     SDL_Event e;
+     memset(&e, 0, sizeof e);
+     e.type = down ? SDL_KEYDOWN : SDL_KEYUP;
+-    e.key.state = down ? SDL_PRESSED : SDL_RELEASED;
+-    e.key.keysym.scancode = sc;
+-    e.key.keysym.sym = sym;
++    SWOS_KEY_DOWN(e.key) = down ? SDL_PRESSED : SDL_RELEASED;
++    SWOS_KEY_SCAN(e.key) = sc;
++    SWOS_KEY_SYM(e.key) = sym;
+     InputSDL_HandleEvent(&e);
+ }
+ 
+diff --git a/src/main.c b/src/main.c
+index f9d400a..cda21d6 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -16,7 +16,7 @@
+ #ifdef SWOS_SDL_BUILD
+ 
+ 
+-#include <SDL.h>
++#include "swos_sdl.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+diff --git a/src/match_record.c b/src/match_record.c
+index 546464e..03f2fa4 100644
+--- a/src/match_record.c
++++ b/src/match_record.c
+@@ -41,7 +41,7 @@ void MatchRecord_SetArrangedByServer(int32_t on)
+ #include <netinet/in.h>
+ #include <netinet/tcp.h>
+ #include <arpa/inet.h>
+-#include <SDL.h>
++#include "swos_sdl.h"
+ 
+ #include "build_info.h"
+ #include "mm_client.h"
+diff --git a/src/match_report.c b/src/match_report.c
+index fb9fb3c..098c668 100644
+--- a/src/match_report.c
++++ b/src/match_report.c
+@@ -34,7 +34,7 @@ static int32_t sending(void)
+ #include <time.h>
+ #include <dirent.h>
+ #include <sys/stat.h>
+-#include <SDL.h>
++#include "swos_sdl.h"
+ 
+ #include "build_info.h"
+ #include "miniz_swos.h"
+diff --git a/src/netplay.c b/src/netplay.c
+index 1da315b..df63c8a 100644
+--- a/src/netplay.c
++++ b/src/netplay.c
+@@ -10,7 +10,7 @@
+ 
+ #ifdef SWOS_NETPLAY
+ 
+-#include <SDL.h>        /* SDL_Delay in the self-test */
++#include "swos_sdl.h"        /* SDL_Delay in the self-test */
+ #include "ggponet.h"
+ 
+ #include <unistd.h>         /* close -- the self-test's port probe */
+diff --git a/src/netplay_live_test.c b/src/netplay_live_test.c
+index 023a7c5..1568fe3 100644
+--- a/src/netplay_live_test.c
++++ b/src/netplay_live_test.c
+@@ -34,7 +34,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <SDL.h>
++#include "swos_sdl.h"
+ 
+ /* Every line, as it happens. stdout to a file or a pipe is block buffered, so a
+  * run that is killed mid-way loses precisely the progress that would say where
+diff --git a/src/netplay_lobby.c b/src/netplay_lobby.c
+index de1ddcb..1e917ff 100644
+--- a/src/netplay_lobby.c
++++ b/src/netplay_lobby.c
+@@ -55,7 +55,7 @@
+ #include "team_proto.h"    /* the server's word on both teams */
+ #include "test_rules.h"     /* the host's CARDS/INJURIES switch */
+ 
+-#include <SDL.h>                        /* SDL_GetPerformanceCounter: key entropy fallback */
++#include "swos_sdl.h"                        /* SDL_GetPerformanceCounter: key entropy fallback */
+ #include <time.h>
+ 
+ #ifdef SWOS_NETPLAY
+diff --git a/src/netplay_match.c b/src/netplay_match.c
+index b1d7334..33f1319 100644
+--- a/src/netplay_match.c
++++ b/src/netplay_match.c
+@@ -9,7 +9,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-#include <SDL.h>        /* SDL_GetTicks, SDL_Delay */
++#include "swos_sdl.h"        /* SDL_GetTicks, SDL_Delay */
+ 
+ #include "netplay_match.h"
+ #include "audio_sfx_filter.h"
+diff --git a/src/netplay_netem.c b/src/netplay_netem.c
+index d97694b..0a2718c 100644
+--- a/src/netplay_netem.c
++++ b/src/netplay_netem.c
+@@ -23,7 +23,7 @@
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+-#include <SDL.h>
++#include "swos_sdl.h"
+ 
+ #include "netem_core.h"
+ 
+diff --git a/src/online_menus.c b/src/online_menus.c
+index 015a3c5..27c80a5 100644
+--- a/src/online_menus.c
++++ b/src/online_menus.c
+@@ -49,7 +49,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-#include <SDL.h>                /* SDL_GetTicks, for a test knob */
++#include "swos_sdl.h"                /* SDL_GetTicks, for a test knob */
+ 
+ #define SWOS2020_MENU(name) "swos2020/" #name
+ 
+diff --git a/src/p2p_link.c b/src/p2p_link.c
+index be0436f..22ccd0d 100644
+--- a/src/p2p_link.c
++++ b/src/p2p_link.c
+@@ -26,7 +26,7 @@
+ 
+ #ifdef SWOS_SDL_BUILD
+ 
+-#include <SDL.h>            /* SDL_GetTicks, SDL_Delay (the self-test) */
++#include "swos_sdl.h"            /* SDL_GetTicks, SDL_Delay (the self-test) */
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+diff --git a/src/platform_sdl.c b/src/platform_sdl.c
+index 158ec54..e456245 100644
+--- a/src/platform_sdl.c
++++ b/src/platform_sdl.c
+@@ -19,7 +19,7 @@
+ #include "dos_graphics.h"    /* DosGfx_BuildPalette */
+ #include "build_info.h"      /* the commit, in the window title */
+ 
+-#include <SDL.h>
++#include "swos_sdl.h"
+ #include <stdio.h>
+ #ifdef SWOS_WASM_BUILD
+ #include <emscripten.h>      /* emscripten_sleep — the ASYNCIFY yield point */
+@@ -335,7 +335,11 @@ void Platform_ArcadeInput(int *coin1, int *coin2, int *service,
+ int Platform_ArcadeDebugWin(void)
+ {
+     static int prev = 0;
++#ifdef SWOS_SDL3_BUILD
++    const bool *ks = SDL_GetKeyboardState(NULL);
++#else
+     const Uint8 *ks = SDL_GetKeyboardState(NULL);
++#endif
+     int now  = ks ? ks[SDL_SCANCODE_F10] : 0;
+     int edge = now && !prev;
+     prev = now;
+@@ -352,15 +356,15 @@ int Platform_LoadIndexedBMP(const char *path, uint8_t *out8, int out_cap,
+     if (!s) { fprintf(stderr, "[arcade] SDL_LoadBMP(%s): %s\n", path, SDL_GetError()); return 1; }
+ 
+     int rc = 1;
+-    if (s->format->BytesPerPixel == 1 && s->format->palette &&
++    if (SWOS_BPP(s) == 1 && SWOS_PALETTE(s) &&
+         s->w * s->h <= out_cap) {
+         for (int y = 0; y < s->h; y++)
+             memcpy(out8 + (size_t)y * s->w,
+                    (const uint8_t *)s->pixels + (size_t)y * s->pitch, s->w);
+-        int n = s->format->palette->ncolors;
++        int n = SWOS_PALETTE(s)->ncolors;
+         for (int i = 0; i < 256; i++) {
+             if (i < n) {
+-                SDL_Color c = s->format->palette->colors[i];
++                SDL_Color c = SWOS_PALETTE(s)->colors[i];
+                 outPal[i] = ((uint32_t)0xFFu << 24) | ((uint32_t)c.r << 16) |
+                             ((uint32_t)c.g << 8) | (uint32_t)c.b;
+             } else {
+@@ -372,7 +376,7 @@ int Platform_LoadIndexedBMP(const char *path, uint8_t *out8, int out_cap,
+         rc = 0;
+     } else {
+         fprintf(stderr, "[arcade] %s not an indexed BMP that fits (bpp=%d %dx%d)\n",
+-                path, s->format->BytesPerPixel, s->w, s->h);
++                path, SWOS_BPP(s), s->w, s->h);
+     }
+     SDL_FreeSurface(s);
+     return rc;
+@@ -498,8 +502,14 @@ void Platform_ResumeTimerThread(void)
+     s_timer_quiesced = 0;
+ }
+ 
++#ifdef SWOS_SDL3_BUILD
++static Uint32 SDLCALL tick_timer_cb(void *param, SDL_TimerID id, Uint32 interval)
++{
++    (void)id;
++#else
+ static Uint32 SDLCALL tick_timer_cb(Uint32 interval, void *param)
+ {
++#endif
+     (void)param;
+     if (s_timer_quiesced)
+         return interval;
+@@ -542,6 +552,11 @@ static Uint32 SDLCALL tick_timer_cb(Uint32 interval, void *param)
+      * for hardware mode the loader-intro path is the cost — the screen
+      * may briefly look frozen during big asset decompresses, but that
+      * is purely cosmetic. */
++#ifdef SWOS_SDL3_BUILD
++    /* SDL3 rendering and OS event pumping belong to the main thread. */
++    (void)since;
++    pump_quit_only();
++#else
+     if (!s_renderer_is_hw &&
+         (s_last_main_render_ms == 0 || since > 60)) {
+         /* Worker-thread render: pump_full=0 — do NOT call SDL_PollEvent/SDL_PumpEvents here.
+@@ -553,6 +568,8 @@ static Uint32 SDLCALL tick_timer_cb(Uint32 interval, void *param)
+         pump_quit_only();
+     }
+ 
++#endif
++
+     /* Turbo: fire as fast as SDL allows (1 ms) so the loader-intro path — a
+      * pure spin on currentGameTick that never calls Platform_VBlank, advanced
+      * ONLY from this thread — drains in a fraction of a second instead of
+@@ -593,7 +610,13 @@ static void apply_picture_scaling(void)
+     if (!s_renderer)
+         return;
+     if (!s_stretch) {
++        #ifdef SWOS_SDL3_BUILD
++        SDL_SetRenderLogicalPresentation(s_renderer, _screen_width, _screen_height,
++            s_scaling_smooth ? SDL_LOGICAL_PRESENTATION_LETTERBOX
++                             : SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
++#else
+         SDL_RenderSetLogicalSize(s_renderer, _screen_width, _screen_height);
++#endif
+         return;
+     }
+     SDL_RenderSetLogicalSize(s_renderer, 0, 0);
+@@ -604,6 +627,9 @@ static void apply_picture_scaling(void)
+ 
+ int Platform_Init(const PlatformInitOptions *opts)
+ {
++#ifdef SWOS_SDL3_BUILD
++    fprintf(stderr, "[sdl] native SDL3 runtime=%d\n", SDL_GetVersion());
++#endif
+     int win_scale = opts ? opts->win_scale : 1;
+     PlatformFullscreenMode fs_mode =
+         opts ? opts->fullscreen : PLATFORM_FULLSCREEN_NONE;
+@@ -1123,6 +1149,10 @@ void Platform_ToggleFullscreen(void)
+ 
+     if (currently_fullscreen) {
+         SDL_SetWindowFullscreen(s_window, 0);
++#if defined(__AROS__) && defined(SWOS_SDL3_BUILD)
++        /* AROS needs a native-window reopen after the fullscreen flag changes. */
++        SDL_SetWindowBordered(s_window, true);
++#endif
+         /* Back to the size the window actually had: the one [video] resolution
+          * named, or the scale when it said 'auto'. */
+         if (s_pinned_w > 0 && s_pinned_h > 0)
+@@ -1140,6 +1170,9 @@ void Platform_ToggleFullscreen(void)
+                          ? SDL_WINDOW_FULLSCREEN
+                          : SDL_WINDOW_FULLSCREEN_DESKTOP;
+         SDL_SetWindowFullscreen(s_window, fs_flag);
++#if defined(__AROS__) && defined(SWOS_SDL3_BUILD)
++        SDL_SetWindowBordered(s_window, false);
++#endif
+         SDL_ShowCursor(SDL_DISABLE);
+     }
+ }
+@@ -1547,12 +1580,12 @@ static void pump_events_any_thread(void)
+              * click while the game loop unwinds. */
+             AudioSDL_PauseAndClear();
+             break;
+-        case SDL_WINDOWEVENT:
+-            if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
++        SWOS_WINDOW_CASES
++            if (SWOS_WINDOW_KIND(ev) == SDL_WINDOWEVENT_CLOSE) {
+                 Platform_RequestQuit();
+                 if (s_window) SDL_HideWindow(s_window);
+                 AudioSDL_PauseAndClear();
+-            } else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
++            } else if (SWOS_WINDOW_KIND(ev) == SDL_WINDOWEVENT_FOCUS_LOST) {
+                 /* Alt-Tab takes focus before SDL delivers KEYUP for the
+                  * Alt that triggered the switch — so without clearing
+                  * here our keyState[AKEY_LALT] / keyBuffer FIFO entry
+@@ -1562,7 +1595,7 @@ static void pump_events_any_thread(void)
+                  * highlighted menu entry. Drop everything; new presses
+                  * after focus returns will repopulate via KEYDOWN. */
+                 InputSDL_ClearKeyState();
+-            } else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
++            } else if (SWOS_WINDOW_KIND(ev) == SDL_WINDOWEVENT_FOCUS_GAINED) {
+                 /* Defence-in-depth: also clear on regain in case any
+                  * KEYDOWN slipped in between FOCUS_LOST and the actual
+                  * loss of input focus. Cheap to do. */
+@@ -1573,7 +1606,7 @@ static void pump_events_any_thread(void)
+             /* ESC at the top-level main menu quits the game; everywhere
+              * else it stays passed through to the menu/game-loop layer
+              * (in-game pause/end-match menu, sub-menus' EXIT, etc.). */
+-            if (ev.key.repeat == 0 && ev.key.keysym.sym == SDLK_ESCAPE) {
++            if (ev.key.repeat == 0 && SWOS_KEY_SYM(ev.key) == SDLK_ESCAPE) {
+                 extern volatile uintptr_t _currentMenuPtr;
+                 extern uint8_t _swosMainMenu[];
+                 if (_currentMenuPtr == (uintptr_t)_swosMainMenu) {
+@@ -1584,19 +1617,19 @@ static void pump_events_any_thread(void)
+                 }
+             }
+             if (ev.key.repeat == 0 &&
+-                (ev.key.keysym.sym == SDLK_F9 ||
+-                 ev.key.keysym.sym == SDLK_F11 ||
+-                 ev.key.keysym.sym == SDLK_F12 ||
+-                 ev.key.keysym.sym == SDLK_PRINTSCREEN)) {
++                (SWOS_KEY_SYM(ev.key) == SDLK_F9 ||
++                 SWOS_KEY_SYM(ev.key) == SDLK_F11 ||
++                 SWOS_KEY_SYM(ev.key) == SDLK_F12 ||
++                 SWOS_KEY_SYM(ev.key) == SDLK_PRINTSCREEN)) {
+                 s_screenshot_request = 1;
+             }
+             /* Alt+Enter: toggle fullscreen. Swallow the event so it
+              * doesn't also reach the menu input layer as ENTER (which
+              * would fire the currently-selected button). */
+             if (ev.key.repeat == 0 &&
+-                (ev.key.keysym.sym == SDLK_RETURN ||
+-                 ev.key.keysym.sym == SDLK_KP_ENTER) &&
+-                (ev.key.keysym.mod & KMOD_ALT)) {
++                (SWOS_KEY_SYM(ev.key) == SDLK_RETURN ||
++                 SWOS_KEY_SYM(ev.key) == SDLK_KP_ENTER) &&
++                (SWOS_KEY_MOD(ev.key) & KMOD_ALT)) {
+                 Platform_ToggleFullscreen();
+                 continue;
+             }
+@@ -1607,15 +1640,15 @@ static void pump_events_any_thread(void)
+              * menu/game layer. No-op while fullscreen (the runtime
+              * scaler ignores the size change). */
+             if (ev.key.repeat == 0 &&
+-                (ev.key.keysym.sym == SDLK_EQUALS ||
+-                 ev.key.keysym.sym == SDLK_PLUS   ||
+-                 ev.key.keysym.sym == SDLK_KP_PLUS)) {
++                (SWOS_KEY_SYM(ev.key) == SDLK_EQUALS ||
++                 SWOS_KEY_SYM(ev.key) == SDLK_PLUS   ||
++                 SWOS_KEY_SYM(ev.key) == SDLK_KP_PLUS)) {
+                 Platform_SetWindowScale(s_win_scale_current + 1);
+                 continue;
+             }
+             if (ev.key.repeat == 0 &&
+-                (ev.key.keysym.sym == SDLK_MINUS ||
+-                 ev.key.keysym.sym == SDLK_KP_MINUS)) {
++                (SWOS_KEY_SYM(ev.key) == SDLK_MINUS ||
++                 SWOS_KEY_SYM(ev.key) == SDLK_KP_MINUS)) {
+                 Platform_SetWindowScale(s_win_scale_current - 1);
+                 continue;
+             }
+@@ -1625,7 +1658,7 @@ static void pump_events_any_thread(void)
+             {
+                 extern int _gArcadeMode;
+                 if (ev.key.repeat == 0 && _gArcadeMode) {
+-                    SDL_Keycode k = ev.key.keysym.sym;
++                    SDL_Keycode k = SWOS_KEY_SYM(ev.key);
+                     if (k == s_arcade_key_p1_credit) { s_arcade_coin1++;   continue; }
+                     if (k == s_arcade_key_p2_credit) { s_arcade_coin2++;   continue; }
+                     if (k == s_arcade_key_service)   { s_arcade_service++; continue; }
+@@ -1664,8 +1697,8 @@ static void pump_quit_only(void)
+         AudioSDL_PauseAndClear();
+     }
+     while (SDL_PeepEvents(&ev, 1, SDL_GETEVENT,
+-                          SDL_WINDOWEVENT, SDL_WINDOWEVENT) > 0) {
+-        if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
++                          SWOS_WINDOW_FIRST, SWOS_WINDOW_LAST) > 0) {
++        if (SWOS_WINDOW_KIND(ev) == SDL_WINDOWEVENT_CLOSE)
+             Platform_RequestQuit();
+     }
+ }
+@@ -2146,9 +2179,9 @@ static void push_key(SDL_Keycode key, int down)
+     SDL_Event ev;
+     memset(&ev, 0, sizeof ev);
+     ev.type = down ? SDL_KEYDOWN : SDL_KEYUP;
+-    ev.key.state = down ? SDL_PRESSED : SDL_RELEASED;
+-    ev.key.keysym.sym = key;
+-    ev.key.keysym.scancode = SDL_GetScancodeFromKey(key);
++    SWOS_KEY_DOWN(ev.key) = down ? SDL_PRESSED : SDL_RELEASED;
++    SWOS_KEY_SYM(ev.key) = key;
++    SWOS_KEY_SCAN(ev.key) = SDL_GetScancodeFromKey(key);
+     SDL_PushEvent(&ev);
+ }
+ 
+diff --git a/src/replay_v2.c b/src/replay_v2.c
+index 1a324dd..a8a3811 100644
+--- a/src/replay_v2.c
++++ b/src/replay_v2.c
+@@ -18,7 +18,7 @@
+ #ifdef SWOS_SDL_BUILD
+ 
+ #include "replay_v2.h"
+-#include <SDL.h>            /* the checkpoint's thread */
++#include "swos_sdl.h"            /* the checkpoint's thread */
+ #include "dos_sound.h"
+ #include "audio_sfx_filter.h"
+ #include "build_info.h"
+diff --git a/src/rollback_rig.c b/src/rollback_rig.c
+index 28026fe..5f37e3b 100644
+--- a/src/rollback_rig.c
++++ b/src/rollback_rig.c
+@@ -44,7 +44,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <SDL.h>
++#include "swos_sdl.h"
+ 
+ #ifdef __linux__
+ #include <elf.h>
+diff --git a/src/sfx_debug.c b/src/sfx_debug.c
+index 8f1bd21..5c1f2a5 100644
+--- a/src/sfx_debug.c
++++ b/src/sfx_debug.c
+@@ -14,7 +14,7 @@
+ #ifdef SWOS_DEBUG_SFX
+ 
+ #include <stdint.h>
+-#include <SDL.h>
++#include "swos_sdl.h"
+ 
+ #include "sfx_debug.h"
+ #include "sfx_ids.h"
+diff --git a/src/swos_io.c b/src/swos_io.c
+index 885c177..3e42edb 100644
+--- a/src/swos_io.c
++++ b/src/swos_io.c
+@@ -10,7 +10,7 @@
+  * macOS uses SDL_GetPrefPath when a .app launch leaves HOME unset. On the
+  * Switch this header also declares SDL_NintendoSwitch_CommitSaveData, which
+  * the fork puts in SDL_filesystem.h rather than a header of its own. */
+-#include <SDL.h>
++#include "swos_sdl.h"
+ #endif
+ #ifdef __AROS__
+ #include <unistd.h>
+@@ -260,7 +260,9 @@ void swos_save_dir_init(void)
+     char *base = SDL_GetBasePath();
+     if (base && *base) {
+         snprintf(s_user_dir, sizeof s_user_dir, "%s", base);
+-        (void)chdir(base);
++        size_t n = strlen(s_user_dir);
++        while (n > 1 && s_user_dir[n-1] == '/') s_user_dir[--n] = 0;
++        (void)chdir(s_user_dir);
+     } else if (!getcwd(s_user_dir, sizeof s_user_dir)) {
+         fprintf(stderr, "[paths] cannot resolve the AROS game drawer\n");
+     }
+diff --git a/src/swos_sdl3.c b/src/swos_sdl3.c
+new file mode 100644
+index 0000000..9cba9c9
+--- /dev/null
++++ b/src/swos_sdl3.c
+@@ -0,0 +1,260 @@
++/* Native SDL3 implementation of the game's narrow SDL platform boundary. */
++#ifdef SWOS_SDL3_BUILD
++#define SWOS_SDL3_IMPLEMENTATION
++#include "swos_sdl.h"
++#include <limits.h>
++#include <string.h>
++char *SwosSdlBasePath(void) {
++  const char *p = SDL_GetBasePath();
++  return p ? SDL_strdup(p) : NULL;
++}
++SDL_Texture *SwosSdlCreateTexture(SDL_Renderer *r, SDL_PixelFormat f,
++                                  SDL_TextureAccess a, int w, int h) {
++  SDL_Texture *t = SDL_CreateTexture(r, f, a, w, h);
++  if (t)
++    SDL_SetTextureScaleMode(t, SDL_SCALEMODE_NEAREST);
++  return t;
++}
++int SwosSdlInit(Uint32 f) { return SDL_Init(f) ? 0 : -1; }
++int SwosSdlInitSubSystem(Uint32 f) { return SDL_InitSubSystem(f) ? 0 : -1; }
++SDL_DisplayID SwosSdlDisplayId(int index) {
++  int n = 0;
++  SDL_DisplayID *ids = SDL_GetDisplays(&n);
++  SDL_DisplayID id = ids && index >= 0 && index < n ? ids[index] : 0;
++  SDL_free(ids);
++  return id;
++}
++int SwosSdlNumDisplays(void) {
++  int n = 0;
++  SDL_DisplayID *ids = SDL_GetDisplays(&n);
++  if (!ids)
++    return -1;
++  SDL_free(ids);
++  return n;
++}
++int SwosSdlDisplayBounds(int i, SDL_Rect *r) {
++  return SDL_GetDisplayBounds(SwosSdlDisplayId(i), r) ? 0 : -1;
++}
++int SwosSdlDisplayUsableBounds(int i, SDL_Rect *r) {
++  return SDL_GetDisplayUsableBounds(SwosSdlDisplayId(i), r) ? 0 : -1;
++}
++static int copy_mode(const SDL_DisplayMode *s, SwosDisplayMode *d) {
++  if (!s || !d)
++    return -1;
++  d->w = s->w;
++  d->h = s->h;
++  d->refresh_rate = (int)(s->refresh_rate + 0.5f);
++  return 0;
++}
++int SwosSdlCurrentDisplayMode(int i, SwosDisplayMode *m) {
++  return copy_mode(SDL_GetCurrentDisplayMode(SwosSdlDisplayId(i)), m);
++}
++int SwosSdlDesktopDisplayMode(int i, SwosDisplayMode *m) {
++  return copy_mode(SDL_GetDesktopDisplayMode(SwosSdlDisplayId(i)), m);
++}
++int SwosSdlWindowDisplayIndex(SDL_Window *w) {
++  SDL_DisplayID id = SDL_GetDisplayForWindow(w);
++  int n = 0, found = -1;
++  SDL_DisplayID *ids = SDL_GetDisplays(&n);
++  for (int i = 0; ids && i < n; ++i)
++    if (ids[i] == id) {
++      found = i;
++      break;
++    }
++  SDL_free(ids);
++  return found;
++}
++SDL_Window *SwosSdlCreateWindow(const char *t, int x, int y, int w, int h,
++                                Uint32 flags) {
++  SDL_Window *win = SDL_CreateWindow(t, w, h, flags);
++  if (win)
++    SDL_SetWindowPosition(win, x, y);
++  return win;
++}
++SDL_Renderer *SwosSdlCreateRenderer(SDL_Window *w, int index, Uint32 flags) {
++  (void)index;
++  const char *name = flags & SDL_RENDERER_SOFTWARE
++                         ? "software"
++                         : SDL_GetHint(SDL_HINT_RENDER_DRIVER);
++  SDL_Renderer *r = SDL_CreateRenderer(w, name);
++  if (r && (flags & SDL_RENDERER_PRESENTVSYNC))
++    SDL_SetRenderVSync(r, 1);
++  return r;
++}
++int SwosSdlRendererInfo(SDL_Renderer *r, SwosRendererInfo *i) {
++  if (!r || !i)
++    return -1;
++  i->name = SDL_GetRendererName(r);
++  int v = 0;
++  SDL_GetRenderVSync(r, &v);
++  i->flags =
++      SDL_RENDERER_TARGETTEXTURE | (v ? SDL_RENDERER_PRESENTVSYNC : 0) |
++      (i->name && !SDL_strcmp(i->name, "software") ? SDL_RENDERER_SOFTWARE
++                                                   : SDL_RENDERER_ACCELERATED);
++  return 0;
++}
++static SDL_FRect *frect(const SDL_Rect *r, SDL_FRect *f) {
++  if (!r)
++    return NULL;
++  *f = (SDL_FRect){r->x, r->y, r->w, r->h};
++  return f;
++}
++int SwosSdlRenderCopy(SDL_Renderer *r, SDL_Texture *t, const SDL_Rect *s,
++                      const SDL_Rect *d) {
++  SDL_FRect sf, df;
++  return SDL_RenderTexture(r, t, frect(s, &sf), frect(d, &df)) ? 0 : -1;
++}
++int SwosSdlRenderCopyF(SDL_Renderer *r, SDL_Texture *t, const SDL_Rect *s,
++                       const SDL_FRect *d) {
++  SDL_FRect sf;
++  return SDL_RenderTexture(r, t, frect(s, &sf), d) ? 0 : -1;
++}
++int SwosSdlReadPixels(SDL_Renderer *r, const SDL_Rect *rect, Uint32 format,
++                      void *pixels, int pitch) {
++  SDL_Surface *s = SDL_RenderReadPixels(r, rect);
++  if (!s)
++    return -1;
++  bool ok = SDL_ConvertPixels(s->w, s->h, s->format, s->pixels, s->pitch,
++                              format, pixels, pitch);
++  SDL_DestroySurface(s);
++  return ok ? 0 : -1;
++}
++SDL_JoystickID SwosSdlJoystickId(int index) {
++  int n = 0;
++  SDL_JoystickID *ids = SDL_GetJoysticks(&n);
++  SDL_JoystickID id = ids && index >= 0 && index < n ? ids[index] : 0;
++  SDL_free(ids);
++  return id;
++}
++static int joystick_index(SDL_JoystickID id) {
++  int n = 0, found = -1;
++  SDL_JoystickID *ids = SDL_GetJoysticks(&n);
++  for (int i = 0; ids && i < n; ++i)
++    if (ids[i] == id) {
++      found = i;
++      break;
++    }
++  SDL_free(ids);
++  return found;
++}
++int SwosSdlNumJoysticks(void) {
++  int n = 0;
++  SDL_JoystickID *ids = SDL_GetJoysticks(&n);
++  if (!ids)
++    return -1;
++  SDL_free(ids);
++  return n;
++}
++SDL_Gamepad *SwosSdlOpenGamepad(int i) {
++  return SDL_OpenGamepad(SwosSdlJoystickId(i));
++}
++SDL_Joystick *SwosSdlOpenJoystick(int i) {
++  return SDL_OpenJoystick(SwosSdlJoystickId(i));
++}
++const char *SwosSdlJoystickNameForIndex(int i) {
++  return SDL_GetJoystickNameForID(SwosSdlJoystickId(i));
++}
++bool SwosSdlIsGamepad(int i) { return SDL_IsGamepad(SwosSdlJoystickId(i)); }
++int SwosSdlAttachVirtual(SDL_JoystickType t, int axes, int buttons, int hats) {
++  SDL_VirtualJoystickDesc d;
++  SDL_INIT_INTERFACE(&d);
++  d.type = t;
++  d.naxes = axes;
++  d.nbuttons = buttons;
++  d.nhats = hats;
++  SDL_JoystickID id = SDL_AttachVirtualJoystick(&d);
++  return id ? joystick_index(id) : -1;
++}
++int SwosSdlPollEvent(SDL_Event *e) {
++  if (!SDL_PollEvent(e))
++    return 0;
++  if (e && (e->type == SDL_EVENT_JOYSTICK_ADDED ||
++            e->type == SDL_EVENT_GAMEPAD_ADDED))
++    e->jdevice.which = joystick_index(e->jdevice.which);
++  return 1;
++}
++/* One output device is owned by audio_sdl.c. Source-format queued bytes stay
++ * in the stream; SDL3 performs device conversion after the existing mixer. */
++static SDL_AudioStream *output;
++SDL_AudioDeviceID SwosSdlOpenAudio(const char *name, int capture,
++                                   const SwosAudioSpec *want,
++                                   SwosAudioSpec *got, int flags) {
++  (void)flags;
++  if (name || capture || output) {
++    SDL_SetError("SWOS supports one default playback stream");
++    return 0;
++  }
++  SDL_AudioSpec spec = {want->format, want->channels, want->freq};
++  output = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec,
++                                     NULL, NULL);
++  if (!output)
++    return 0;
++  if (got)
++    *got = *want;
++  return SDL_GetAudioStreamDevice(output);
++}
++void SwosSdlPauseAudio(SDL_AudioDeviceID id, int pause) {
++  (void)id;
++  if (output) {
++    if (pause)
++      SDL_PauseAudioStreamDevice(output);
++    else
++      SDL_ResumeAudioStreamDevice(output);
++  }
++}
++void SwosSdlCloseAudio(SDL_AudioDeviceID id) {
++  (void)id;
++  SDL_DestroyAudioStream(output);
++  output = NULL;
++}
++int SwosSdlQueueAudio(SDL_AudioDeviceID id, const void *p, Uint32 n) {
++  (void)id;
++  return output && n <= INT_MAX && SDL_PutAudioStreamData(output, p, (int)n)
++             ? 0
++             : -1;
++}
++Uint32 SwosSdlQueuedAudio(SDL_AudioDeviceID id) {
++  (void)id;
++  int n = output ? SDL_GetAudioStreamQueued(output) : 0;
++  return n > 0 ? (Uint32)n : 0;
++}
++void SwosSdlClearAudio(SDL_AudioDeviceID id) {
++  (void)id;
++  if (output)
++    SDL_ClearAudioStream(output);
++}
++SwosAudioSpec *SwosSdlLoadWav(const char *p, SwosAudioSpec *s, Uint8 **b,
++                              Uint32 *n) {
++  SDL_AudioSpec a;
++  if (!SDL_LoadWAV(p, &a, b, n))
++    return NULL;
++  memset(s, 0, sizeof *s);
++  s->format = a.format;
++  s->channels = a.channels;
++  s->freq = a.freq;
++  return s;
++}
++int SwosSdlBuildAudioCvt(SwosAudioCVT *c, SDL_AudioFormat sf, Uint8 sc, int sr,
++                         SDL_AudioFormat df, Uint8 dc, int dr) {
++  if (!c || !sc || !dc || sr <= 0 || dr <= 0)
++    return -1;
++  memset(c, 0, sizeof *c);
++  c->src = (SDL_AudioSpec){sf, sc, sr};
++  c->dst = (SDL_AudioSpec){df, dc, dr};
++  c->needed = sf != df || sc != dc || sr != dr;
++  c->len_mult = 1;
++  return c->needed;
++}
++int SwosSdlConvertAudio(SwosAudioCVT *c) {
++  if (!c || c->len < 0)
++    return -1;
++  Uint8 *out = NULL;
++  int len = 0;
++  if (!SDL_ConvertAudioSamples(&c->src, c->buf, c->len, &c->dst, &out, &len))
++    return -1;
++  SDL_free(c->buf);
++  c->buf = out;
++  c->len_cvt = len;
++  return 0;
++}
++#endif

@@ -1,0 +1,17 @@
+0001-aros-sdl2-bringup.patch
+0002-native-sdl3-boundary.patch
+0003-aros-replay-assign-path.patch
+0004-audio-observations.patch
+0005-aros-sdl3-real-audio-refill.patch
+0006-save-write-errors.patch
+0007-aros-native-network.patch
+0008-preboot-asset-load.patch
+0009-current-data-selftest-ids.patch
+0010-aros-data-converter-paths.patch
+0011-sdl-heap-alignment.patch
+0012-linear-json-byte-load.patch
+0013-aros-pthread-socket-mappings.patch
+0014-aros-sdl-environment.patch
+0015-aros-native-worker-shutdown.patch
+0016-aros-report-pthread-context.patch
+0017-route-local-matchmaker-address.patch

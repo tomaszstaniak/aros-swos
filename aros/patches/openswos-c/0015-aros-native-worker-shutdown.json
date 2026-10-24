@@ -1,0 +1,23 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch",
+    "0007-aros-native-network.patch",
+    "0008-preboot-asset-load.patch",
+    "0009-current-data-selftest-ids.patch",
+    "0010-aros-data-converter-paths.patch",
+    "0011-sdl-heap-alignment.patch",
+    "0012-linear-json-byte-load.patch",
+    "0013-aros-pthread-socket-mappings.patch",
+    "0014-aros-sdl-environment.patch"
+  ],
+  "rationale": "On native AROS, SDL workers are DOS processes and cannot outlive the executable/C libraries. Register exactly-once atexit cleanup for direct exit paths as well as normal return. Join PC sample loading, immutable replay checkpoints and retained report uploads before platform/SDL teardown; reap completed report handles during play. No simulation changes.",
+  "target": "AROS native SDL3, x86_64 v11/v1 and AArch64 v1",
+  "verification": "Native v11: short HIL baseline RC0 plus three unfreed signals/audio worker crashes -> cleanup RC0 without warnings; missing SRP RC1 clean. PC sample loader baseline one unfreed signal -> joined RC0 clean. Actual report worker baseline active1 after cleanup/RC1/crash -> joined active0/RC0, owned local receiver acknowledges after6sec. Real synthetic checkpoint writes complete2326-byte SRP identical to expected; no-join mutation reproduces srp-checkpoint crash. Full NETPLAY=1 v11/v1/Pi and host SDL3 compile/link passed. Host input/replay/custom-team/menu selftests RC0. Final collected checkpoint/native UI results verified separately before commit.",
+  "upstream_status": "local, not submitted"
+}

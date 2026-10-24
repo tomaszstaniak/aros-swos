@@ -44,7 +44,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL.h>
+#include "swos_sdl.h"
 
 #ifdef __linux__
 #include <elf.h>

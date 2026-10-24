@@ -23,7 +23,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <SDL.h>
+#include "swos_aros_net.h"
+#include "swos_sdl.h"
 
 #include "netem_core.h"
 

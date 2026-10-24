@@ -1,0 +1,15 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch"
+  ],
+  "rationale": "Use per-thread native bsdsocket.library handles and select readiness for the complete GGPO/ENet engine. Socket handles never pass through posixc file close.",
+  "target": "AROS SDL3",
+  "verification": "v11 full NETPLAY=1 build; native UDP/nonblocking/select/TCP worker/TLS teardown probe and upstream GGPO/P2P selftest RC0 phase B. Full network match remains open.",
+  "upstream_status": "local, not submitted"
+}

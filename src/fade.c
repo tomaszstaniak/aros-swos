@@ -8,7 +8,7 @@
 
 #ifdef SWOS_SDL_BUILD
 #include "platform_sdl.h"
-#include <SDL.h>
+#include "swos_sdl.h"
 #ifdef SWOS_WASM_BUILD
 #include <emscripten.h>
 #endif

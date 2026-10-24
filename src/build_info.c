@@ -39,6 +39,8 @@
 #    define SWOS_PLATFORM_OS "windows"
 #  elif defined(__APPLE__)
 #    define SWOS_PLATFORM_OS "macos"
+#  elif defined(__AROS__)
+#    define SWOS_PLATFORM_OS "AROS"
 #  elif defined(__linux__)
 #    define SWOS_PLATFORM_OS "linux"
 #  else

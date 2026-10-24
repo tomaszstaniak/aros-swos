@@ -1,0 +1,30 @@
+--- a/src/joystick/aros/SDL_sysjoystick.c
++++ b/src/joystick/aros/SDL_sysjoystick.c
+@@ -47,6 +47,7 @@
+ {
+     char *gi_name;
+     SDL_GUID gi_guid;
++    SDL_JoystickID gi_instance_id;
+ };
+ 
+ static struct SDL_AROS_GAMEINPUT *aros_gameinput_devices = NULL;
+@@ -153,8 +154,9 @@
+             D(bug("[SDL3:Joystick] %s: #%d '%s'\n", __func__, joystick_count, dev_name));
+             aros_gameinput_devices[port].gi_name = dev_name;
+             aros_gameinput_devices[port].gi_guid = guid;
++            aros_gameinput_devices[port].gi_instance_id = SDL_GetNextObjectID();
+             joystick_count++;
+-            SDL_PrivateJoystickAdded(joystick_count); /* instance IDs are device_index + 1 */
++            SDL_PrivateJoystickAdded(aros_gameinput_devices[port].gi_instance_id);
+         }
+         return true;
+     }
+@@ -217,7 +219,7 @@
+ static SDL_JoystickID AROS_JoystickGetDeviceInstanceID(int device_index)
+ {
+     D(bug("[SDL3:Joystick] %s(%d)\n", __func__, device_index));
+-    return device_index + 1;
++    return aros_gameinput_devices[LowLevel_PortFromIndex(device_index)].gi_instance_id;
+ }
+ 
+ static bool AROS_JoystickOpen(SDL_Joystick *joystick, int device_index)

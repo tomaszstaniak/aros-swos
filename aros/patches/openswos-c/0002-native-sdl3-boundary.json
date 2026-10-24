@@ -1,0 +1,10 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch"
+  ],
+  "rationale": "Native SDL3 platform boundary preserves existing SDL call-site contracts: bool/error returns, events and main-thread pumping, audio streams and conversion, display/device IDs, base-path ownership and physical output size. AROS native fullscreen reopen and sharp integer scaling. No gameplay or AI rewrite.",
+  "target": "x86_64 AROS ABIv11, SDL3 3.4.12; SDL2 retained as reference",
+  "verification": "Full SDL3 and SDL2 target compile/link; host dummy and native v11 behavioral probes RC0; native engine input selftest OK; actual CPU/CPU match reached; fullscreen centered 2x and window round-trip verified; exact 28-file reconstruction; clean upstream. Actual CPU/CPU match:8000 frames, mean20.189ms (~49.53Hz),4 intervals>30ms, max145.83ms, exit0. Audio listening, tearing, v1 and Pi unverified.",
+  "upstream_status": "local, not submitted"
+}

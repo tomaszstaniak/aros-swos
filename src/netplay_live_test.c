@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL.h>
+#include "swos_sdl.h"
 
 /* Every line, as it happens. stdout to a file or a pipe is block buffered, so a
  * run that is killed mid-way loses precisely the progress that would say where

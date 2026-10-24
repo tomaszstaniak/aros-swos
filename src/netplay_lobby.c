@@ -55,7 +55,7 @@
 #include "team_proto.h"    /* the server's word on both teams */
 #include "test_rules.h"     /* the host's CARDS/INJURIES switch */
 
-#include <SDL.h>                        /* SDL_GetPerformanceCounter: key entropy fallback */
+#include "swos_sdl.h"                        /* SDL_GetPerformanceCounter: key entropy fallback */
 #include <time.h>
 
 #ifdef SWOS_NETPLAY

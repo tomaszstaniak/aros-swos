@@ -14,6 +14,9 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#ifdef __AROS__
+#include "swos_aros_net.h"
+#endif
 
 #define ENET_BUILDING_LIB 1
 #include "enet/enet.h"

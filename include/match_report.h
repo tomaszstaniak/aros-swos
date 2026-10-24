@@ -55,4 +55,7 @@ int32_t MatchReport_Pending(void);
  * they run on threads of their own, which exit() would cut off. */
 void MatchReport_Flush(uint32_t waitMs);
 
+/* Process exit: finish the report and join every native upload worker. */
+void MatchReport_Shutdown(void);
+
 #endif /* MATCH_REPORT_H */

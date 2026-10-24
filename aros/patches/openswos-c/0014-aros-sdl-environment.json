@@ -1,0 +1,22 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch",
+    "0007-aros-native-network.patch",
+    "0008-preboot-asset-load.patch",
+    "0009-current-data-selftest-ids.patch",
+    "0010-aros-data-converter-paths.patch",
+    "0011-sdl-heap-alignment.patch",
+    "0012-linear-json-byte-load.patch",
+    "0013-aros-pthread-socket-mappings.patch"
+  ],
+  "rationale": "AROS SDL3 has its own environment while engine C getenv reads AmigaDOS variables. Synchronize both at the SDL2-call compatibility boundary, preserving overwrite=false and empty values. No simulation changes.",
+  "target": "AROS native SDL3",
+  "verification": "Identical native v11 probe: original5 environment mismatches/RC1 -> corrected0/RC0. Non-AROS host adapter5 checks pass unchanged. Full v11, x86_64 v1 and native Pi NETPLAY=1 compile/link pass. Native updated input selftest and GGPO/UDP600-frame peer test RC0 (no desyncs). Native full replay still running/under investigation; no playback-complete claim.",
+  "upstream_status": "local, not submitted"
+}

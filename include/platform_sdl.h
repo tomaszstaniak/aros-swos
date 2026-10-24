@@ -8,7 +8,7 @@
 #ifndef PLATFORM_SDL_H
 #define PLATFORM_SDL_H
 
-#include <SDL.h>
+#include "swos_sdl.h"
 
 /* Native SWOS resolution. Matches display.h. */
 #define PLATFORM_SCREEN_W 336

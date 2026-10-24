@@ -1,0 +1,21 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch",
+    "0007-aros-native-network.patch",
+    "0008-preboot-asset-load.patch",
+    "0009-current-data-selftest-ids.patch",
+    "0010-aros-data-converter-paths.patch",
+    "0011-sdl-heap-alignment.patch",
+    "0012-linear-json-byte-load.patch"
+  ],
+  "rationale": "Include pthread cancellation wrappers before scoped native socket mappings, preventing later libc++ headers from restoring calls through global SocketBase.",
+  "target": "AROS native networking, newer SDK headers",
+  "verification": "Full native Pi NETPLAY=1 link RED undefined SocketBase in GGPO UDP -> GREEN. Clean scripted Pi C++ runtime + full game rebuild passed. C++ socket-then-string probe has only swos_net_sendto undefined, no SocketBase. Full v11 and x86_64 v1 NETPLAY=1 rebuilds passed. Native execution after this include-order fix remains pending.",
+  "upstream_status": "local, not submitted"
+}

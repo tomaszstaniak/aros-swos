@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <SDL.h>
+#include "swos_sdl.h"
 
 #include "assets_check.h"
 #include "assets_ini.h"

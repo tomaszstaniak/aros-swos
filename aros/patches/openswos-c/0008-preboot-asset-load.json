@@ -1,0 +1,16 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch",
+    "0007-aros-native-network.patch"
+  ],
+  "rationale": "Load optional assets before the primary framebuffer exists; avoid NULL staging/mirroring and fail invalid requests.",
+  "target": "AROS SDL3",
+  "verification": "Real production host preboot loader SIGSEGV RED -> GREEN incl alternate/missing/null;  Native v11 phase C real production preboot probe RC0; custom-team selftest now RC0 instead of crash, 1631 teams/27727 IDs/0 wrong.",
+  "upstream_status": "local, not submitted"
+}

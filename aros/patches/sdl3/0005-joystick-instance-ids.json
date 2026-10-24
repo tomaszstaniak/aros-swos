@@ -1,0 +1,18 @@
+{
+  "base": "SDL3 3.4.12",
+  "predecessors": [
+    "0001-aros-port.patch",
+    "0002-langinfo-guard.patch",
+    "0003-hidden-window-framebuffer.patch",
+    "0004-text-input.patch"
+  ],
+  "sha256": "9f69e94c4adbdebcf1ff0c4adb961aa373a1d302f69ff9979dbe5dcad11abbef",
+  "purpose": "Use globally allocated SDL object IDs for AROS lowlevel joysticks; prevent collisions with virtual and other joystick backends.",
+  "verification": "Native x86_64 AROS ABIv1: identical production-decoder test linked against original SDL reports two duplicate-ID failures (RC1); patched SDL passes all checks (RC0), including keyboard directions/fire charge/release, independent two-virtual-pad state and detach. Ambient lowlevel joystick remains enumerated, but is disconnected from game slots via the real removal-event handler. Original unisolated probe recorded ten setter/state failures. Physical pads and full two-human match remain unverified.",
+  "upstream_status": "local-only",
+  "upstream_resolution": "Equivalent fix already present upstream before this local patch; no submission needed. Retain for the older pinned backend until dependency update is verified.",
+  "upstream_commit": "a3cb9c4700a81c9d14ebdc8741c932825c4429f0",
+  "upstream_url": "https://github.com/aros-development-team/contrib/commit/a3cb9c4700a81c9d14ebdc8741c932825c4429f0",
+  "upstream_checked_head": "45327d2cee6bf27830de1ecef816804dc9259560",
+  "upstream_checked_date": "2026-10-24"
+}

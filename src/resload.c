@@ -194,8 +194,10 @@ static uint32_t fs_save(const char *path, const uint8_t *src, uint32_t n)
     FILE *f = fopen(path, "wb");
     if (!f) return 0;
     size_t put = fwrite(src, 1, n, f);
-    fclose(f);
-    return (uint32_t)put;
+    int closed = fclose(f);
+    /* Buffered writes can fail only on close. A nonzero partial byte count
+     * must not be mistaken for a successful save by rob_save. */
+    return put == n && closed == 0 ? n : 0;
 }
 
 static uint32_t fs_delete(const char *path)

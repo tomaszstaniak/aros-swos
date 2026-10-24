@@ -1,0 +1,22 @@
+diff --git a/lib/sg_util.c b/lib/sg_util.c
+index 81fbeeb..b245b8f 100644
+--- a/lib/sg_util.c
++++ b/lib/sg_util.c
+@@ -109,7 +109,17 @@ int32_t Sg_WriteFile(const char *path, const void *data, uint32_t size, char *er
+ 
+ void Sg_PathJoin(char *out, uint32_t cap, const char *a, const char *b)
+ {
++#ifdef __AROS__
++    /* AROS uses volume:child and has no Unix './' current-directory prefix. */
++    if (strcmp(a, ".") == 0) a = "";
++#endif
+     size_t la = strlen(a);
++#ifdef __AROS__
++    if (la && a[la - 1] == ':') {
++        snprintf(out, cap, "%s%s", a, b);
++        return;
++    }
++#endif
+     if (la && (a[la - 1] == '/' || a[la - 1] == '\\'))
+         snprintf(out, cap, "%s%s", a, b);
+     else if (la)

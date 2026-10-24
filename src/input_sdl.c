@@ -24,7 +24,7 @@
  */
 
 #include "platform_sdl.h"
-#include <SDL.h>
+#include "swos_sdl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -647,14 +647,14 @@ void InputSDL_HandleEvent(const SDL_Event *e)
     case SDL_KEYDOWN: {
         /* The CONTROLS menu is waiting for a key: this is it. */
         if (s_capture) {
-            if (e->key.repeat == 0 && e->key.keysym.scancode != SDL_SCANCODE_UNKNOWN) {
-                s_captured = e->key.keysym.scancode;
+            if (e->key.repeat == 0 && SWOS_KEY_SCAN(e->key) != SDL_SCANCODE_UNKNOWN) {
+                s_captured = SWOS_KEY_SCAN(e->key);
                 s_capture = 0;
             }
             break;
         }
         /* One of the player's own keys ([input] key_*): a control, and nothing else. */
-        int act = bound_action(e->key.keysym.scancode);
+        int act = bound_action(SWOS_KEY_SCAN(e->key));
         if (act >= 0) {
             static const SDL_Keycode arrow[4] = { SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT };
             if (act == BIND_FIRE) {
@@ -667,7 +667,7 @@ void InputSDL_HandleEvent(const SDL_Event *e)
             }
             break;
         }
-        int a = sdl_to_amiga(e->key.keysym.sym);
+        int a = sdl_to_amiga(SWOS_KEY_SYM(e->key));
         /* Arrow keys drive joy1Dat directly (s_kbd_up/down/left/right
          * below) so we DON'T also push their Amiga scancodes into
          * keyBuffer — `GetKey()` then `keycodeLut` maps the arrow
@@ -681,10 +681,10 @@ void InputSDL_HandleEvent(const SDL_Event *e)
          * fires bench1 every time the keypress lands in keyBuffer.
          * Menu navigation still works because the joystick path
          * drives menuControlsDirection from pl1Direction. */
-        int is_movement_arrow = (e->key.keysym.sym == SDLK_UP   ||
-                                  e->key.keysym.sym == SDLK_DOWN ||
-                                  e->key.keysym.sym == SDLK_LEFT ||
-                                  e->key.keysym.sym == SDLK_RIGHT);
+        int is_movement_arrow = (SWOS_KEY_SYM(e->key) == SDLK_UP   ||
+                                  SWOS_KEY_SYM(e->key) == SDLK_DOWN ||
+                                  SWOS_KEY_SYM(e->key) == SDLK_LEFT ||
+                                  SWOS_KEY_SYM(e->key) == SDLK_RIGHT);
         /* Alt is dropped from the input layer entirely. The OS owns
          * Alt-Tab and Alt+space (window menu) and these complete in
          * orders SDL can't always linearise — the Alt KEYDOWN reaches
@@ -694,8 +694,8 @@ void InputSDL_HandleEvent(const SDL_Event *e)
          * role is still covered by RCTRL / LCTRL / SPACE / ENTER, and
          * Alt+Enter for fullscreen reads KMOD_ALT off the modifier mask
          * (not our keyState), so it keeps working. */
-        int is_alt = (e->key.keysym.sym == SDLK_LALT ||
-                      e->key.keysym.sym == SDLK_RALT);
+        int is_alt = (SWOS_KEY_SYM(e->key) == SDLK_LALT ||
+                      SWOS_KEY_SYM(e->key) == SDLK_RALT);
         /* A netplay match: no key reaches the game's own keyboard state at all.
          * keyBuffer feeds GetKey/MainKeysCheck and keyState is polled directly,
          * and either one acted on THIS machine only -- Q called the bench, S the
@@ -706,7 +706,7 @@ void InputSDL_HandleEvent(const SDL_Event *e)
         extern int32_t NetplayMatch_Enabled(void);
         extern void    NetplayMatch_RequestLeave(void);
         int in_match = NetplayMatch_Enabled();
-        if (in_match && e->key.keysym.sym == SDLK_ESCAPE && e->key.repeat == 0)
+        if (in_match && SWOS_KEY_SYM(e->key) == SDLK_ESCAPE && e->key.repeat == 0)
             NetplayMatch_RequestLeave();
         if (is_alt || in_match) {
             /* Don't record keyState, don't push to keyBuffer, don't
@@ -729,10 +729,10 @@ void InputSDL_HandleEvent(const SDL_Event *e)
              * FIFO so GetKey doesn't see them as menu/hotkey input. */
             _keyState[a] = 1;
         }
-        switch (e->key.keysym.sym) {
+        switch (SWOS_KEY_SYM(e->key)) {
         case SDLK_UP: case SDLK_DOWN: case SDLK_LEFT: case SDLK_RIGHT:
             if (e->key.repeat == 0)
-                kbd_arrow(e->key.keysym.sym, 1);
+                kbd_arrow(SWOS_KEY_SYM(e->key), 1);
             break;
         case SDLK_RCTRL:
             s_kbd_fire_keys |= KBD_FIRE_RCTRL;
@@ -789,7 +789,7 @@ void InputSDL_HandleEvent(const SDL_Event *e)
         {
             int i, act = -1;
             for (i = 0; i < BIND_COUNT; i++)
-                if (s_bind[i] != SDL_SCANCODE_UNKNOWN && s_bind[i] == e->key.keysym.scancode)
+                if (s_bind[i] != SDL_SCANCODE_UNKNOWN && s_bind[i] == SWOS_KEY_SCAN(e->key))
                     act = i;
             if (act >= 0) {
                 static const SDL_Keycode arrow[4] = { SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT };
@@ -803,13 +803,13 @@ void InputSDL_HandleEvent(const SDL_Event *e)
                     break;
             }
         }
-        int a = sdl_to_amiga(e->key.keysym.sym);
-        int is_alt = (e->key.keysym.sym == SDLK_LALT ||
-                      e->key.keysym.sym == SDLK_RALT);
+        int a = sdl_to_amiga(SWOS_KEY_SYM(e->key));
+        int is_alt = (SWOS_KEY_SYM(e->key) == SDLK_LALT ||
+                      SWOS_KEY_SYM(e->key) == SDLK_RALT);
         if (!is_alt && a >= 0) _keyState[a] = 0;
-        switch (e->key.keysym.sym) {
+        switch (SWOS_KEY_SYM(e->key)) {
         case SDLK_UP: case SDLK_DOWN: case SDLK_LEFT: case SDLK_RIGHT:
-            kbd_arrow(e->key.keysym.sym, 0);
+            kbd_arrow(SWOS_KEY_SYM(e->key), 0);
             break;
         /* Clear only THIS key's bit — fire stays down while another
          * fire key is still held (see s_kbd_fire_keys). */
@@ -1185,9 +1185,9 @@ static void selftest_key(SDL_Scancode sc, SDL_Keycode sym, int down)
     SDL_Event e;
     memset(&e, 0, sizeof e);
     e.type = down ? SDL_KEYDOWN : SDL_KEYUP;
-    e.key.state = down ? SDL_PRESSED : SDL_RELEASED;
-    e.key.keysym.scancode = sc;
-    e.key.keysym.sym = sym;
+    SWOS_KEY_DOWN(e.key) = down ? SDL_PRESSED : SDL_RELEASED;
+    SWOS_KEY_SCAN(e.key) = sc;
+    SWOS_KEY_SYM(e.key) = sym;
     InputSDL_HandleEvent(&e);
 }
 

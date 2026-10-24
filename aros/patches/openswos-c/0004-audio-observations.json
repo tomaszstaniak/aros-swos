@@ -1,0 +1,12 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch"
+  ],
+  "rationale": "Observe actual SDL3 audio driver/device sample frames and optional queue emptiness/silence padding after reported music crackles. No buffer default, mixing, simulation or presentation changes.",
+  "target": "SDL3 device logging; SDL2/SDL3 opt-in mixer queue counters",
+  "verification": "Host SDL3 dummy boundary passes with 1024, 2048 and 4096 actual device frames. Full AROS x86_64 ABIv11 SDL3 compile/link passes. No native run or listening assessment; VM remains released.",
+  "upstream_status": "local, not submitted"
+}

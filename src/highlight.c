@@ -931,7 +931,7 @@ end_replay:
     _replayState = 0;
     return;
 
-after_decode:
+after_decode:; /* A label precedes a statement in C11 (GCC10). */
     /* loc_10C4E2: overlay drawing */
 
     /* The overlay's coordinates are each release's own, against its own screen:

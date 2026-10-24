@@ -1,0 +1,19 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch",
+    "0007-aros-native-network.patch",
+    "0008-preboot-asset-load.patch",
+    "0009-current-data-selftest-ids.patch",
+    "0010-aros-data-converter-paths.patch",
+    "0011-sdl-heap-alignment.patch"
+  ],
+  "rationale": "Avoid reparsing byte arrays from their start for each element. Single parser callback preserves byte values, skipped nonnumbers, bounds and offsets. Native HIL test exposed slow loading; no save schema or simulation changes.",
+  "verification": "Production private loader RED1024 rescans -> GREEN0, zero semantic failures, on host and native v11-3. Host13 persistence operations RC0 (PRE raw unused name tail remains review-required). Native updated HIL write/read/re-save RC0 and exact JSON vs prepatch. Native SYS career cold restart/load/re-save RC0 and all-semantic JSON comparison pass. Full native NETPLAY=1 build and complete12-patch reconstruction pass.",
+  "upstream_status": "local, not submitted"
+}

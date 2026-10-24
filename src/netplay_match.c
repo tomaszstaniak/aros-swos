@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <SDL.h>        /* SDL_GetTicks, SDL_Delay */
+#include "swos_sdl.h"        /* SDL_GetTicks, SDL_Delay */
 
 #include "netplay_match.h"
 #include "audio_sfx_filter.h"

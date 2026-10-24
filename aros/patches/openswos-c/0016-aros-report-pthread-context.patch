@@ -1,0 +1,82 @@
+diff --git a/src/match_report.c b/src/match_report.c
+index a20c3a6..6cd4df8 100644
+--- a/src/match_report.c
++++ b/src/match_report.c
+@@ -49,6 +49,9 @@ static int32_t sending(void)
+ #include <fcntl.h>
+ #include <netdb.h>
+ #include "swos_socket_wait.h"
++#ifdef __AROS__
++#include <pthread.h>
++#endif
+ #include <unistd.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+@@ -512,7 +515,7 @@ typedef struct Upload {
+     uint8_t *data;
+     uint32_t len;
+ #ifdef __AROS__
+-    SDL_Thread *thread;
++    pthread_t thread;
+     SDL_atomic_t done;
+     struct Upload *next;
+ #endif
+@@ -522,14 +525,14 @@ typedef struct Upload {
+ static Upload *s_uploads;
+ 
+ /* Only the main thread owns this list. A worker publishes completion, then
+- * WaitThread joins its native process before we release its argument/handle. */
++ * pthread_join also releases its task-local socket context before the node. */
+ static void reap_uploads(int wait_all)
+ {
+     Upload **link = &s_uploads;
+     while (*link) {
+         Upload *u = *link;
+         if (wait_all || SDL_AtomicGet(&u->done)) {
+-            SDL_WaitThread(u->thread, NULL);
++            pthread_join(u->thread, NULL);
+             *link = u->next;
+             free(u);
+         } else {
+@@ -682,6 +685,15 @@ static int SDLCALL upload_thread(void *arg)
+ #endif
+     return 0;
+ }
++#ifdef __AROS__
++/* Native sockets use pthread TLS. SDL's direct DOS process is not registered
++ * with pthread and would alias the main thread's socket-library context. */
++static void *upload_pthread(void *arg)
++{
++    upload_thread(arg);
++    return NULL;
++}
++#endif
+ #endif
+ 
+ static void upload(const uint8_t *zip, uint32_t zipLen)
+@@ -720,19 +732,20 @@ static void upload(const uint8_t *zip, uint32_t zipLen)
+     u->len = n + zipLen;
+ #ifndef __EMSCRIPTEN__
+     {
+-        SDL_Thread *t;
+         SDL_AtomicAdd(&s_uploading, 1);
+-        t = SDL_CreateThread(upload_thread, "match report", u);
+-        if (t) {
+ #ifdef __AROS__
+-            u->thread = t;
++        if (pthread_create(&u->thread, NULL, upload_pthread, u) == 0) {
+             u->next = s_uploads;
+             s_uploads = u;
++            return;
++        }
+ #else
++        SDL_Thread *t = SDL_CreateThread(upload_thread, "match report", u);
++        if (t) {
+             SDL_DetachThread(t);
+-#endif
+             return;
+         }
++#endif
+         SDL_AtomicAdd(&s_uploading, -1);
+     }
+ #endif

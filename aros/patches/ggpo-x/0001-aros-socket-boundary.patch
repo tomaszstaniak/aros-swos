@@ -1,0 +1,14 @@
+diff --git a/src/lib/ggpo/platform_linux.h b/src/lib/ggpo/platform_linux.h
+index e1e3bd6..e30c9d7 100644
+--- a/src/lib/ggpo/platform_linux.h
++++ b/src/lib/ggpo/platform_linux.h
+@@ -35,6 +35,9 @@
+ #include <climits>
+ #include <stdexcept>
+ #include <utility>      /* std::move -- <windows.h> pulls it in transitively */
++#ifdef __AROS__
++#include "swos_aros_net.h"
++#endif
+ 
+ #define TRUE     1
+ #define FALSE    0

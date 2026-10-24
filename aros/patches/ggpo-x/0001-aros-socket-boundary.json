@@ -1,0 +1,8 @@
+{
+  "base": "c56fd83e920e0516e2ffc982953ec321dcf11059",
+  "rationale": "Route GGPO C++ socket calls through the app native per-thread AROS socket boundary.",
+  "upstream_status": "local, not submitted",
+  "predecessors": [],
+  "target": "AROS GGPO socket calls in the complete SDL3 engine",
+  "verification": "Full v11 NETPLAY=1 game links; native GGPO/P2P combined selftest RC0 and real UDP/TCP/nonblocking/select/pthread/TLS-close probe RC0. Real peer match acceptance remains open."
+}

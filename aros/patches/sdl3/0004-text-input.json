@@ -1,0 +1,12 @@
+{
+  "base": "SDL3 3.4.12",
+  "archive_sha256": "f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7",
+  "predecessors": [
+    "0001-aros-port.patch",
+    "0002-langinfo-guard.patch",
+    "0003-hidden-window-framebuffer.patch"
+  ],
+  "origin": "aros-openloco 91b6b5a0e240a50c20c543d7abe10c61cea1e7d1",
+  "sha256": "d1fb79b0e6c51ae5ca72b24be0fd272dea6f3ec38932fadfea48f4b75a75af4a",
+  "verification": "187 SDL3 modules compile for AROS AArch64; SDL3 window/input probe and full offline game link. Pi runtime unverified. Imported unchanged; no claim of authorship."
+}

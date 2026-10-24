@@ -1,0 +1,64 @@
+diff --git a/include/swos_sdl.h b/include/swos_sdl.h
+index 6933db1..c70ddfd 100644
+--- a/include/swos_sdl.h
++++ b/include/swos_sdl.h
+@@ -159,6 +159,9 @@ static inline int SwosSdlLockTexture(SDL_Texture *t, const SDL_Rect *r,
+   return SDL_LockTexture(t, r, p, pitch) ? 0 : -1;
+ }
+ 
++#ifdef __AROS__
++int SwosSdlSetEnv(const char *n, const char *v, int overwrite);
++#else
+ static inline int SwosSdlSetEnv(const char *n, const char *v, int overwrite) {
+   int rc = SDL_setenv_unsafe(n, v, overwrite);
+   if (rc == 0 &&
+@@ -166,6 +169,7 @@ static inline int SwosSdlSetEnv(const char *n, const char *v, int overwrite) {
+     return -1;
+   return rc;
+ }
++#endif
+ static inline int SwosSdlOutputSize(SDL_Renderer *r, int *w, int *h) {
+   SDL_Texture *t = SDL_GetRenderTarget(r);
+   if (t) {
+diff --git a/src/swos_sdl3.c b/src/swos_sdl3.c
+index 337a21b..a9c87be 100644
+--- a/src/swos_sdl3.c
++++ b/src/swos_sdl3.c
+@@ -5,6 +5,37 @@
+ #include <limits.h>
+ #include <stdio.h>
+ #include <string.h>
++#ifdef __AROS__
++#include <stdlib.h>
++#include <proto/dos.h>
++#include <dos/var.h>
++/* SDL's AROS backend has a private environment. The engine also uses C getenv,
++ * which reads AmigaDOS variables; update both at this compatibility boundary. */
++int SwosSdlSetEnv(const char *name, const char *value, int overwrite) {
++  if (!name || !*name || SDL_strchr(name, '=') || !value)
++    return -1;
++  const char *effective = value;
++  if (!overwrite) {
++    const char *existing = getenv(name);
++    if (existing)
++      effective = existing;
++  }
++  /* getenv storage is reused by the CRT. Keep the selected value stable while
++   * SDL creates its environment and allocates the new entry. */
++  char *copy = SDL_strdup(effective);
++  if (!copy)
++    return -1;
++  int rc = -1;
++  if (SetVar(name, copy, -1, LV_VAR | GVF_LOCAL_ONLY)) {
++    rc = SDL_setenv_unsafe(name, copy, 1);
++    if (rc == 0 &&
++        !SDL_SetEnvironmentVariable(SDL_GetEnvironment(), name, copy, true))
++      rc = -1;
++  }
++  SDL_free(copy);
++  return rc;
++}
++#endif
+ char *SwosSdlBasePath(void) {
+   const char *p = SDL_GetBasePath();
+   return p ? SDL_strdup(p) : NULL;

@@ -1,0 +1,37 @@
+diff --git a/src/swos_io.c b/src/swos_io.c
+index bb03da2..0de6412 100644
+--- a/src/swos_io.c
++++ b/src/swos_io.c
+@@ -73,17 +73,19 @@ int atoi(const char *s) {
+ #endif
+ 
+ /* ============================================================
+- * Allocation. Both backings store the block size in the first 4
+- * bytes; the caller receives a pointer to the byte after that.
++ * Allocation. Both backings store the block size in a private header.
++ * SDL pads that header to preserve malloc alignment for the payload;
++ * the Amiga hardware backing keeps its original four-byte layout.
+  * swos_io_free / swos_io_realloc reverse the offset to recover
+  * the size that AllocMem / malloc were given.
+  * ============================================================ */
+ 
+-#define SWOS_HDR_SIZE 4u
+-
+ #ifdef SWOS_SDL_BUILD
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <stddef.h>
++
++#define SWOS_HDR_SIZE ((uint32_t)_Alignof(max_align_t))
+ 
+ void *swos_io_alloc(uint32_t sz)
+ {
+@@ -112,6 +114,8 @@ void swos_io_free(void *p)
+ 
+ #else  /* !SWOS_SDL_BUILD — Amiga */
+ 
++#define SWOS_HDR_SIZE 4u
++
+ extern uint8_t *AllocMemAny(uint32_t sz);
+ extern void     FreeMemAny(void *addr, uint32_t sz);
+ 

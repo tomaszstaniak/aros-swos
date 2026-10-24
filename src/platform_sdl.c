@@ -19,7 +19,7 @@
 #include "dos_graphics.h"    /* DosGfx_BuildPalette */
 #include "build_info.h"      /* the commit, in the window title */
 
-#include <SDL.h>
+#include "swos_sdl.h"
 #include <stdio.h>
 #ifdef SWOS_WASM_BUILD
 #include <emscripten.h>      /* emscripten_sleep — the ASYNCIFY yield point */
@@ -335,7 +335,11 @@ void Platform_ArcadeInput(int *coin1, int *coin2, int *service,
 int Platform_ArcadeDebugWin(void)
 {
     static int prev = 0;
+#ifdef SWOS_SDL3_BUILD
+    const bool *ks = SDL_GetKeyboardState(NULL);
+#else
     const Uint8 *ks = SDL_GetKeyboardState(NULL);
+#endif
     int now  = ks ? ks[SDL_SCANCODE_F10] : 0;
     int edge = now && !prev;
     prev = now;
@@ -352,15 +356,15 @@ int Platform_LoadIndexedBMP(const char *path, uint8_t *out8, int out_cap,
     if (!s) { fprintf(stderr, "[arcade] SDL_LoadBMP(%s): %s\n", path, SDL_GetError()); return 1; }
 
     int rc = 1;
-    if (s->format->BytesPerPixel == 1 && s->format->palette &&
+    if (SWOS_BPP(s) == 1 && SWOS_PALETTE(s) &&
         s->w * s->h <= out_cap) {
         for (int y = 0; y < s->h; y++)
             memcpy(out8 + (size_t)y * s->w,
                    (const uint8_t *)s->pixels + (size_t)y * s->pitch, s->w);
-        int n = s->format->palette->ncolors;
+        int n = SWOS_PALETTE(s)->ncolors;
         for (int i = 0; i < 256; i++) {
             if (i < n) {
-                SDL_Color c = s->format->palette->colors[i];
+                SDL_Color c = SWOS_PALETTE(s)->colors[i];
                 outPal[i] = ((uint32_t)0xFFu << 24) | ((uint32_t)c.r << 16) |
                             ((uint32_t)c.g << 8) | (uint32_t)c.b;
             } else {
@@ -372,7 +376,7 @@ int Platform_LoadIndexedBMP(const char *path, uint8_t *out8, int out_cap,
         rc = 0;
     } else {
         fprintf(stderr, "[arcade] %s not an indexed BMP that fits (bpp=%d %dx%d)\n",
-                path, s->format->BytesPerPixel, s->w, s->h);
+                path, SWOS_BPP(s), s->w, s->h);
     }
     SDL_FreeSurface(s);
     return rc;
@@ -498,8 +502,14 @@ void Platform_ResumeTimerThread(void)
     s_timer_quiesced = 0;
 }
 
+#ifdef SWOS_SDL3_BUILD
+static Uint32 SDLCALL tick_timer_cb(void *param, SDL_TimerID id, Uint32 interval)
+{
+    (void)id;
+#else
 static Uint32 SDLCALL tick_timer_cb(Uint32 interval, void *param)
 {
+#endif
     (void)param;
     if (s_timer_quiesced)
         return interval;
@@ -542,6 +552,11 @@ static Uint32 SDLCALL tick_timer_cb(Uint32 interval, void *param)
      * for hardware mode the loader-intro path is the cost — the screen
      * may briefly look frozen during big asset decompresses, but that
      * is purely cosmetic. */
+#ifdef SWOS_SDL3_BUILD
+    /* SDL3 rendering and OS event pumping belong to the main thread. */
+    (void)since;
+    pump_quit_only();
+#else
     if (!s_renderer_is_hw &&
         (s_last_main_render_ms == 0 || since > 60)) {
         /* Worker-thread render: pump_full=0 — do NOT call SDL_PollEvent/SDL_PumpEvents here.
@@ -552,6 +567,8 @@ static Uint32 SDLCALL tick_timer_cb(Uint32 interval, void *param)
     } else {
         pump_quit_only();
     }
+
+#endif
 
     /* Turbo: fire as fast as SDL allows (1 ms) so the loader-intro path — a
      * pure spin on currentGameTick that never calls Platform_VBlank, advanced
@@ -593,7 +610,13 @@ static void apply_picture_scaling(void)
     if (!s_renderer)
         return;
     if (!s_stretch) {
+        #ifdef SWOS_SDL3_BUILD
+        SDL_SetRenderLogicalPresentation(s_renderer, _screen_width, _screen_height,
+            s_scaling_smooth ? SDL_LOGICAL_PRESENTATION_LETTERBOX
+                             : SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
+#else
         SDL_RenderSetLogicalSize(s_renderer, _screen_width, _screen_height);
+#endif
         return;
     }
     SDL_RenderSetLogicalSize(s_renderer, 0, 0);
@@ -604,6 +627,9 @@ static void apply_picture_scaling(void)
 
 int Platform_Init(const PlatformInitOptions *opts)
 {
+#ifdef SWOS_SDL3_BUILD
+    fprintf(stderr, "[sdl] native SDL3 runtime=%d\n", SDL_GetVersion());
+#endif
     int win_scale = opts ? opts->win_scale : 1;
     PlatformFullscreenMode fs_mode =
         opts ? opts->fullscreen : PLATFORM_FULLSCREEN_NONE;
@@ -1123,6 +1149,10 @@ void Platform_ToggleFullscreen(void)
 
     if (currently_fullscreen) {
         SDL_SetWindowFullscreen(s_window, 0);
+#if defined(__AROS__) && defined(SWOS_SDL3_BUILD)
+        /* AROS needs a native-window reopen after the fullscreen flag changes. */
+        SDL_SetWindowBordered(s_window, true);
+#endif
         /* Back to the size the window actually had: the one [video] resolution
          * named, or the scale when it said 'auto'. */
         if (s_pinned_w > 0 && s_pinned_h > 0)
@@ -1140,6 +1170,9 @@ void Platform_ToggleFullscreen(void)
                          ? SDL_WINDOW_FULLSCREEN
                          : SDL_WINDOW_FULLSCREEN_DESKTOP;
         SDL_SetWindowFullscreen(s_window, fs_flag);
+#if defined(__AROS__) && defined(SWOS_SDL3_BUILD)
+        SDL_SetWindowBordered(s_window, false);
+#endif
         SDL_ShowCursor(SDL_DISABLE);
     }
 }
@@ -1547,12 +1580,12 @@ static void pump_events_any_thread(void)
              * click while the game loop unwinds. */
             AudioSDL_PauseAndClear();
             break;
-        case SDL_WINDOWEVENT:
-            if (ev.window.event == SDL_WINDOWEVENT_CLOSE) {
+        SWOS_WINDOW_CASES
+            if (SWOS_WINDOW_KIND(ev) == SDL_WINDOWEVENT_CLOSE) {
                 Platform_RequestQuit();
                 if (s_window) SDL_HideWindow(s_window);
                 AudioSDL_PauseAndClear();
-            } else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+            } else if (SWOS_WINDOW_KIND(ev) == SDL_WINDOWEVENT_FOCUS_LOST) {
                 /* Alt-Tab takes focus before SDL delivers KEYUP for the
                  * Alt that triggered the switch — so without clearing
                  * here our keyState[AKEY_LALT] / keyBuffer FIFO entry
@@ -1562,7 +1595,7 @@ static void pump_events_any_thread(void)
                  * highlighted menu entry. Drop everything; new presses
                  * after focus returns will repopulate via KEYDOWN. */
                 InputSDL_ClearKeyState();
-            } else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+            } else if (SWOS_WINDOW_KIND(ev) == SDL_WINDOWEVENT_FOCUS_GAINED) {
                 /* Defence-in-depth: also clear on regain in case any
                  * KEYDOWN slipped in between FOCUS_LOST and the actual
                  * loss of input focus. Cheap to do. */
@@ -1573,7 +1606,7 @@ static void pump_events_any_thread(void)
             /* ESC at the top-level main menu quits the game; everywhere
              * else it stays passed through to the menu/game-loop layer
              * (in-game pause/end-match menu, sub-menus' EXIT, etc.). */
-            if (ev.key.repeat == 0 && ev.key.keysym.sym == SDLK_ESCAPE) {
+            if (ev.key.repeat == 0 && SWOS_KEY_SYM(ev.key) == SDLK_ESCAPE) {
                 extern volatile uintptr_t _currentMenuPtr;
                 extern uint8_t _swosMainMenu[];
                 if (_currentMenuPtr == (uintptr_t)_swosMainMenu) {
@@ -1584,19 +1617,19 @@ static void pump_events_any_thread(void)
                 }
             }
             if (ev.key.repeat == 0 &&
-                (ev.key.keysym.sym == SDLK_F9 ||
-                 ev.key.keysym.sym == SDLK_F11 ||
-                 ev.key.keysym.sym == SDLK_F12 ||
-                 ev.key.keysym.sym == SDLK_PRINTSCREEN)) {
+                (SWOS_KEY_SYM(ev.key) == SDLK_F9 ||
+                 SWOS_KEY_SYM(ev.key) == SDLK_F11 ||
+                 SWOS_KEY_SYM(ev.key) == SDLK_F12 ||
+                 SWOS_KEY_SYM(ev.key) == SDLK_PRINTSCREEN)) {
                 s_screenshot_request = 1;
             }
             /* Alt+Enter: toggle fullscreen. Swallow the event so it
              * doesn't also reach the menu input layer as ENTER (which
              * would fire the currently-selected button). */
             if (ev.key.repeat == 0 &&
-                (ev.key.keysym.sym == SDLK_RETURN ||
-                 ev.key.keysym.sym == SDLK_KP_ENTER) &&
-                (ev.key.keysym.mod & KMOD_ALT)) {
+                (SWOS_KEY_SYM(ev.key) == SDLK_RETURN ||
+                 SWOS_KEY_SYM(ev.key) == SDLK_KP_ENTER) &&
+                (SWOS_KEY_MOD(ev.key) & KMOD_ALT)) {
                 Platform_ToggleFullscreen();
                 continue;
             }
@@ -1607,15 +1640,15 @@ static void pump_events_any_thread(void)
              * menu/game layer. No-op while fullscreen (the runtime
              * scaler ignores the size change). */
             if (ev.key.repeat == 0 &&
-                (ev.key.keysym.sym == SDLK_EQUALS ||
-                 ev.key.keysym.sym == SDLK_PLUS   ||
-                 ev.key.keysym.sym == SDLK_KP_PLUS)) {
+                (SWOS_KEY_SYM(ev.key) == SDLK_EQUALS ||
+                 SWOS_KEY_SYM(ev.key) == SDLK_PLUS   ||
+                 SWOS_KEY_SYM(ev.key) == SDLK_KP_PLUS)) {
                 Platform_SetWindowScale(s_win_scale_current + 1);
                 continue;
             }
             if (ev.key.repeat == 0 &&
-                (ev.key.keysym.sym == SDLK_MINUS ||
-                 ev.key.keysym.sym == SDLK_KP_MINUS)) {
+                (SWOS_KEY_SYM(ev.key) == SDLK_MINUS ||
+                 SWOS_KEY_SYM(ev.key) == SDLK_KP_MINUS)) {
                 Platform_SetWindowScale(s_win_scale_current - 1);
                 continue;
             }
@@ -1625,7 +1658,7 @@ static void pump_events_any_thread(void)
             {
                 extern int _gArcadeMode;
                 if (ev.key.repeat == 0 && _gArcadeMode) {
-                    SDL_Keycode k = ev.key.keysym.sym;
+                    SDL_Keycode k = SWOS_KEY_SYM(ev.key);
                     if (k == s_arcade_key_p1_credit) { s_arcade_coin1++;   continue; }
                     if (k == s_arcade_key_p2_credit) { s_arcade_coin2++;   continue; }
                     if (k == s_arcade_key_service)   { s_arcade_service++; continue; }
@@ -1664,8 +1697,8 @@ static void pump_quit_only(void)
         AudioSDL_PauseAndClear();
     }
     while (SDL_PeepEvents(&ev, 1, SDL_GETEVENT,
-                          SDL_WINDOWEVENT, SDL_WINDOWEVENT) > 0) {
-        if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
+                          SWOS_WINDOW_FIRST, SWOS_WINDOW_LAST) > 0) {
+        if (SWOS_WINDOW_KIND(ev) == SDL_WINDOWEVENT_CLOSE)
             Platform_RequestQuit();
     }
 }
@@ -2146,9 +2179,9 @@ static void push_key(SDL_Keycode key, int down)
     SDL_Event ev;
     memset(&ev, 0, sizeof ev);
     ev.type = down ? SDL_KEYDOWN : SDL_KEYUP;
-    ev.key.state = down ? SDL_PRESSED : SDL_RELEASED;
-    ev.key.keysym.sym = key;
-    ev.key.keysym.scancode = SDL_GetScancodeFromKey(key);
+    SWOS_KEY_DOWN(ev.key) = down ? SDL_PRESSED : SDL_RELEASED;
+    SWOS_KEY_SYM(ev.key) = key;
+    SWOS_KEY_SCAN(ev.key) = SDL_GetScancodeFromKey(key);
     SDL_PushEvent(&ev);
 }
 

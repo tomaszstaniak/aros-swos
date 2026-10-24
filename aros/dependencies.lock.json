@@ -1,0 +1,25 @@
+{
+  "aros_contrib": {
+    "repository": "https://github.com/aros-development-team/contrib",
+    "commit": "4b9155332fe73d41159c417fcec3ed35679912ad",
+    "sdl_build_glue": "SDL3/main",
+    "glue_sha256": {
+      "mmakefile.src": "255eda3fc05c1f615135fce495f4984493d211cc6204688cc4923399adcd2144",
+      "SDL3_static.c": "f65dc081ed8fe81e5a442dfef6d405cfff1ab429513a4b058c310ca35c2fb849",
+      "SDL3_intern.h": "589a7b15f0698394a8f2a39dbdd0d5df5892d83a1323dee0519d31ddd0d5e8f3"
+    }
+  },
+  "sdl3": {
+    "version": "3.4.12",
+    "archive_sha256": "f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7",
+    "patch_series": "patches/sdl3/series",
+    "source_manifest_sha256": "979adbdc2ad0bece8ba5355db67da301a941924d12aa58df4bb51da4727db4f4"
+  },
+  "libiconv": {
+    "version": "1.19",
+    "patch_series": "patches/libiconv/series",
+    "archive_sha256": "88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6",
+    "archive_url": "https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz",
+    "source_manifest_sha256": "030a6bf691854edb644950d53a8ca9f76ffdd143620aa04df3d2dd306d066784"
+  }
+}

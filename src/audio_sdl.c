@@ -25,7 +25,7 @@
 #include "dos_music.h"
 #include "music_stream.h"
 
-#include <SDL.h>
+#include "swos_sdl.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -61,6 +61,9 @@ static int               s_master_volume;   /* 0..64, scales final output */
  * each lane after the mix. --audio=stereo restores the original Amiga
  * panning. */
 static int               s_audio_mono = 1;
+/* Opt-in observations, not hardware underrun counters. Access under s_mtx. */
+static int s_audio_diagnostics;
+static unsigned long long s_queue_checks, s_empty_checks, s_silence_pads;
 
 /* Song looping. Most SWOS songs (the menus) loop internally, but some — notably
  * the HERO title song used in arcade attract — have no loop-back and just end.
@@ -137,6 +140,8 @@ static int audio_pump_thread(void *unused);
 int AudioSDL_Init(int mono)
 {
     s_audio_mono = mono ? 1 : 0;
+    s_audio_diagnostics = SDL_getenv("SWOS_AUDIO_DIAGNOSTICS") != NULL;
+    s_queue_checks = s_empty_checks = s_silence_pads = 0;
 #if SWOS_AUDIO_DISABLED
     /* Audio disabled at compile time — return success so platform init
      * continues; s_audio_dev stays 0 and AudioSDL_Tick early-returns. */
@@ -215,6 +220,15 @@ void AudioSDL_Shutdown(void)
     }
     if (s_audio_dev) {
         SDL_PauseAudioDevice(s_audio_dev, 1);
+        if (s_audio_diagnostics) {
+            SDL_LockMutex(s_mtx);
+            fprintf(stderr, "[audio] queue observations: checks=%llu empty=%llu "
+                            "silence-pads=%llu (%llu ms); target=%dms; "
+                            "empty includes startup/clears, not proven AHI underruns\n",
+                    s_queue_checks, s_empty_checks, s_silence_pads,
+                    s_silence_pads * 20, QUEUE_TARGET_MS);
+            SDL_UnlockMutex(s_mtx);
+        }
         SDL_ClearQueuedAudio(s_audio_dev);
         SDL_CloseAudioDevice(s_audio_dev);
         s_audio_dev = 0;
@@ -262,154 +276,170 @@ void AudioSDL_Tick(void)
 
     SDL_LockMutex(s_mtx);
 
-    /* Re-check the queue inside the lock — if the other thread just
-     * topped it up, we're done. This is what prevents two threads from
-     * both calling RJP1_HandleTick for the same tick (which would
-     * double-step the song state). */
-    Uint32 queued_bytes = SDL_GetQueuedAudioSize(s_audio_dev);
-    if (queued_bytes >= target_bytes) {
-        SDL_UnlockMutex(s_mtx);
-        return;
-    }
-
-    if (s_player_active) {
-        SDL_memset(s_mix_buf, 0, (size_t)samples_per_tick);
-        RJP1_HandleTick(&s_player);
-        if (s_loop_song && RJP1_IsFinished(&s_player)) {
-            RJP1_StartSong(&s_player, s_loop_subsong);  /* loop: restart the song... */
-            RJP1_HandleTick(&s_player);                 /* ...and tick its first row now (no gap) */
-        }
-        RJP1_MixSamples(&s_player, freq, s_mix_buf, samples_per_tick);
-
-        /* Down-mix to mono (default). Amiga channels 1,2 are hard-left
-         * and 0,3 are hard-right in the cyxx mapping inside rjp1.c —
-         * pleasant on stereo headphones, lopsided on a single speaker.
-         * Energy-preserving fold-down: (L+R)/sqrt(2) (≈ *181/256) keeps the
-         * overall loudness equal to the stereo mix; the old plain (L+R)/2 lost
-         * ~3 dB and halved hard-panned content like the HERO vocal. */
-        if (s_audio_mono) {
-            for (int i = 0; i + 1 < samples_per_tick; i += 2) {
-                int m = ((int)s_mix_buf[i] + (int)s_mix_buf[i + 1]) * 181 / 256;
-                if (m < -128) m = -128; else if (m > 127) m = 127;
-                s_mix_buf[i]     = (int8_t)m;
-                s_mix_buf[i + 1] = (int8_t)m;
-            }
-        }
-    } else {
-        SDL_memset(s_mix_buf, 0, (size_t)samples_per_tick);   /* silence */
-    }
-
-    /* SFX player — only ticks when music+sfx mixing routed SFX to its own player
-     * (s_sfx_active). Idle otherwise, so the normal game (SFX in s_player) is
-     * unchanged. No loop handling: the SFX bank is trigger-driven. */
-    if (s_sfx_active) {
-        SDL_memset(s_sfx_mix_buf, 0, (size_t)samples_per_tick);
-        RJP1_HandleTick(&s_sfx_player);
-        RJP1_MixSamples(&s_sfx_player, freq, s_sfx_mix_buf, samples_per_tick);
-        if (s_audio_mono) {
-            for (int i = 0; i + 1 < samples_per_tick; i += 2) {
-                int m = ((int)s_sfx_mix_buf[i] + (int)s_sfx_mix_buf[i + 1]) * 181 / 256;
-                if (m < -128) m = -128; else if (m > 127) m = 127;
-                s_sfx_mix_buf[i]     = (int8_t)m;
-                s_sfx_mix_buf[i + 1] = (int8_t)m;
-            }
-        }
-    } else {
-        SDL_memset(s_sfx_mix_buf, 0, (size_t)samples_per_tick);
-    }
-
-    /* Up-convert the 8-bit mix to 16-bit, applying the master volume (0..64)
-     * losslessly in the wider domain — a quiet level no longer collapses the
-     * 8-bit range, so there's no quantisation grain (the Amiga applied volume in
-     * analog after the DAC). At full (0x40) this is simply *256. The music and SFX
-     * players sum here (each ±127); on loud overlaps the clamp catches the peak. */
-    {
-        const int mv = s_master_volume;
-        for (int i = 0; i < samples_per_tick; ++i) {
-            int v = ((int)s_mix_buf[i] + (int)s_sfx_mix_buf[i]) * 256 * mv / 64;
-            if (v < -32768) v = -32768; else if (v > 32767) v = 32767;
-            s_out_buf[i] = (int16_t)v;
-        }
-    }
-
-    /* The PC sounds. 8-bit unsigned -> 16-bit at volume/127, under the same master
-     * volume as the players and the match's own fade. */
-    {
-        const int frames = samples_per_tick / 2;
-        for (int vi = 0; vi < PCM_VOICES; vi++) {
-            PcmVoice *pv = &s_pcm[vi];
-            if (!pv->data)
-                continue;
-            /* PCM_HEADROOM/256: the PC game's crowd, a chant, a line of commentary and
-             * an effect or two sound together, each recorded near full scale. */
-            const int gain = pv->volume * s_pcm_master * s_master_volume * PCM_HEADROOM / 256;
-            for (int i = 0; i < frames; i++) {
-                uint32_t at = (uint32_t)(pv->pos >> 16);
-                if (at >= pv->len) {
-                    if (pv->loops == 0) { pv->data = NULL; break; }
-                    if (pv->loops > 0) pv->loops--;
-                    pv->pos -= (uint64_t)pv->len << 16;
-                    at = (uint32_t)(pv->pos >> 16);
-                    if (at >= pv->len) { pv->pos = 0; at = 0; }
-                }
-                {
-                    const uint32_t at1 = at + 1 < pv->len ? at + 1 : at;
-                    const int frac = (int)(pv->pos & 0xFFFF);
-                    int smp;                                                /* 16-bit */
-                    if (pv->is16) {
-                        const int16_t *d16 = (const int16_t *)(const void *)pv->data;
-                        smp = d16[at] + (int)(((int64_t)(d16[at1] - d16[at]) * frac) >> 16);
-                    } else {
-                        const int a = (int)pv->data[at] - 128, b = (int)pv->data[at1] - 128;
-                        smp = a * 256 + (b - a) * frac / 256;
-                    }
-                    const int add = (int)((int64_t)smp * gain / (127 * 64 * 64));
-                    int l = (int)s_out_buf[i * 2] + add, r = (int)s_out_buf[i * 2 + 1] + add;
-                    if (l < -32768) l = -32768; else if (l > 32767) l = 32767;
-                    if (r < -32768) r = -32768; else if (r > 32767) r = 32767;
-                    s_out_buf[i * 2] = (int16_t)l;
-                    s_out_buf[i * 2 + 1] = (int16_t)r;
-                }
-                pv->pos += pv->step;
-            }
-        }
-    }
-
-    /* The PC menu music, under the same master volume: the menus fade it in and out. */
-    if (DosMusic_Playing())
-        DosMusic_Render(s_out_buf, samples_per_tick / 2, freq, PC_MUSIC_GAIN * s_master_volume / 64);
-    /* A streamed track (the PC CD's title song), under the master volume too. */
-    if (MusicStream_Playing())
-        MusicStream_Render(s_out_buf, samples_per_tick / 2, freq, 256 * s_master_volume / 64);
-
-    /* Mix the one-shot WAV overlay (coin-insert jingle etc.) on top at full level,
-     * independent of the music's master volume. */
-    if (s_ovl_pos >= 0 && s_ovl_pcm) {
-        for (int i = 0; i < samples_per_tick && s_ovl_pos < s_ovl_len; i++, s_ovl_pos++) {
-            int v = (int)s_out_buf[i] + (int)s_ovl_pcm[s_ovl_pos];
-            if (v < -32768) v = -32768; else if (v > 32767) v = 32767;
-            s_out_buf[i] = (int16_t)v;
-        }
-        if (s_ovl_pos >= s_ovl_len) s_ovl_pos = -1;   /* finished */
-    }
-
-    /* Enqueue inside the lock so a concurrent caller's queue re-check sees the
-     * new size. SDL_QueueAudio is internally locked; nesting s_mtx is safe. */
-    SDL_QueueAudio(s_audio_dev, s_out_buf, out_bytes);
-
-#ifndef SWOS_WASM_BUILD
-    /* If a long main-thread stall left us under target, top up with silence
-     * rather than mixing multiple ticks (which would desync the fade tempo).
-     * WASM does NOT do this — it would stutter, since the once-per-frame pump
-     * regularly leaves us under target. Instead AudioSDL_Tick is called in a
-     * loop (Platform_RenderFrame) so the queue fills with REAL ticks; the device
-     * drains at real time so the song tempo stays correct. */
-    queued_bytes = SDL_GetQueuedAudioSize(s_audio_dev);
-    if (queued_bytes + out_bytes < target_bytes) {
-        SDL_memset(s_out_buf, 0, (size_t)out_bytes);
-        SDL_QueueAudio(s_audio_dev, s_out_buf, out_bytes);
-    }
+    /* SDL3 can consume queued source data in device-sized bursts. Refill
+     * AROS with real 20ms chunks, not silence between successive music ticks.
+     * Consumption still gates song advancement; the mutex excludes the backup
+     * pumps. Four chunks cover our 80ms target and bound work even if the device
+     * keeps draining during a call. Other backends retain their old policy. */
+#if defined(__AROS__) && defined(SWOS_SDL3_BUILD)
+    const int max_chunks = 4;
+#else
+    const int max_chunks = 1;
 #endif
+    for (int chunk = 0; chunk < max_chunks; ++chunk) {
+        /* Re-check the queue inside the lock — if the other thread just
+         * topped it up, we're done. This is what prevents two threads from
+         * both calling RJP1_HandleTick for the same tick (which would
+         * double-step the song state). */
+        Uint32 queued_bytes = SDL_GetQueuedAudioSize(s_audio_dev);
+        if (s_audio_diagnostics) {
+            ++s_queue_checks;
+            if (!queued_bytes) ++s_empty_checks;
+        }
+        if (queued_bytes >= target_bytes)
+            break;
+
+        if (s_player_active) {
+            SDL_memset(s_mix_buf, 0, (size_t)samples_per_tick);
+            RJP1_HandleTick(&s_player);
+            if (s_loop_song && RJP1_IsFinished(&s_player)) {
+                RJP1_StartSong(&s_player, s_loop_subsong);  /* loop: restart the song... */
+                RJP1_HandleTick(&s_player);                 /* ...and tick its first row now (no gap) */
+            }
+            RJP1_MixSamples(&s_player, freq, s_mix_buf, samples_per_tick);
+
+            /* Down-mix to mono (default). Amiga channels 1,2 are hard-left
+             * and 0,3 are hard-right in the cyxx mapping inside rjp1.c —
+             * pleasant on stereo headphones, lopsided on a single speaker.
+             * Energy-preserving fold-down: (L+R)/sqrt(2) (≈ *181/256) keeps the
+             * overall loudness equal to the stereo mix; the old plain (L+R)/2 lost
+             * ~3 dB and halved hard-panned content like the HERO vocal. */
+            if (s_audio_mono) {
+                for (int i = 0; i + 1 < samples_per_tick; i += 2) {
+                    int m = ((int)s_mix_buf[i] + (int)s_mix_buf[i + 1]) * 181 / 256;
+                    if (m < -128) m = -128; else if (m > 127) m = 127;
+                    s_mix_buf[i]     = (int8_t)m;
+                    s_mix_buf[i + 1] = (int8_t)m;
+                }
+            }
+        } else {
+            SDL_memset(s_mix_buf, 0, (size_t)samples_per_tick);   /* silence */
+        }
+
+        /* SFX player — only ticks when music+sfx mixing routed SFX to its own player
+         * (s_sfx_active). Idle otherwise, so the normal game (SFX in s_player) is
+         * unchanged. No loop handling: the SFX bank is trigger-driven. */
+        if (s_sfx_active) {
+            SDL_memset(s_sfx_mix_buf, 0, (size_t)samples_per_tick);
+            RJP1_HandleTick(&s_sfx_player);
+            RJP1_MixSamples(&s_sfx_player, freq, s_sfx_mix_buf, samples_per_tick);
+            if (s_audio_mono) {
+                for (int i = 0; i + 1 < samples_per_tick; i += 2) {
+                    int m = ((int)s_sfx_mix_buf[i] + (int)s_sfx_mix_buf[i + 1]) * 181 / 256;
+                    if (m < -128) m = -128; else if (m > 127) m = 127;
+                    s_sfx_mix_buf[i]     = (int8_t)m;
+                    s_sfx_mix_buf[i + 1] = (int8_t)m;
+                }
+            }
+        } else {
+            SDL_memset(s_sfx_mix_buf, 0, (size_t)samples_per_tick);
+        }
+
+        /* Up-convert the 8-bit mix to 16-bit, applying the master volume (0..64)
+         * losslessly in the wider domain — a quiet level no longer collapses the
+         * 8-bit range, so there's no quantisation grain (the Amiga applied volume in
+         * analog after the DAC). At full (0x40) this is simply *256. The music and SFX
+         * players sum here (each ±127); on loud overlaps the clamp catches the peak. */
+        {
+            const int mv = s_master_volume;
+            for (int i = 0; i < samples_per_tick; ++i) {
+                int v = ((int)s_mix_buf[i] + (int)s_sfx_mix_buf[i]) * 256 * mv / 64;
+                if (v < -32768) v = -32768; else if (v > 32767) v = 32767;
+                s_out_buf[i] = (int16_t)v;
+            }
+        }
+
+        /* The PC sounds. 8-bit unsigned -> 16-bit at volume/127, under the same master
+         * volume as the players and the match's own fade. */
+        {
+            const int frames = samples_per_tick / 2;
+            for (int vi = 0; vi < PCM_VOICES; vi++) {
+                PcmVoice *pv = &s_pcm[vi];
+                if (!pv->data)
+                    continue;
+                /* PCM_HEADROOM/256: the PC game's crowd, a chant, a line of commentary and
+                 * an effect or two sound together, each recorded near full scale. */
+                const int gain = pv->volume * s_pcm_master * s_master_volume * PCM_HEADROOM / 256;
+                for (int i = 0; i < frames; i++) {
+                    uint32_t at = (uint32_t)(pv->pos >> 16);
+                    if (at >= pv->len) {
+                        if (pv->loops == 0) { pv->data = NULL; break; }
+                        if (pv->loops > 0) pv->loops--;
+                        pv->pos -= (uint64_t)pv->len << 16;
+                        at = (uint32_t)(pv->pos >> 16);
+                        if (at >= pv->len) { pv->pos = 0; at = 0; }
+                    }
+                    {
+                        const uint32_t at1 = at + 1 < pv->len ? at + 1 : at;
+                        const int frac = (int)(pv->pos & 0xFFFF);
+                        int smp;                                                /* 16-bit */
+                        if (pv->is16) {
+                            const int16_t *d16 = (const int16_t *)(const void *)pv->data;
+                            smp = d16[at] + (int)(((int64_t)(d16[at1] - d16[at]) * frac) >> 16);
+                        } else {
+                            const int a = (int)pv->data[at] - 128, b = (int)pv->data[at1] - 128;
+                            smp = a * 256 + (b - a) * frac / 256;
+                        }
+                        const int add = (int)((int64_t)smp * gain / (127 * 64 * 64));
+                        int l = (int)s_out_buf[i * 2] + add, r = (int)s_out_buf[i * 2 + 1] + add;
+                        if (l < -32768) l = -32768; else if (l > 32767) l = 32767;
+                        if (r < -32768) r = -32768; else if (r > 32767) r = 32767;
+                        s_out_buf[i * 2] = (int16_t)l;
+                        s_out_buf[i * 2 + 1] = (int16_t)r;
+                    }
+                    pv->pos += pv->step;
+                }
+            }
+        }
+
+        /* The PC menu music, under the same master volume: the menus fade it in and out. */
+        if (DosMusic_Playing())
+            DosMusic_Render(s_out_buf, samples_per_tick / 2, freq, PC_MUSIC_GAIN * s_master_volume / 64);
+        /* A streamed track (the PC CD's title song), under the master volume too. */
+        if (MusicStream_Playing())
+            MusicStream_Render(s_out_buf, samples_per_tick / 2, freq, 256 * s_master_volume / 64);
+
+        /* Mix the one-shot WAV overlay (coin-insert jingle etc.) on top at full level,
+         * independent of the music's master volume. */
+        if (s_ovl_pos >= 0 && s_ovl_pcm) {
+            for (int i = 0; i < samples_per_tick && s_ovl_pos < s_ovl_len; i++, s_ovl_pos++) {
+                int v = (int)s_out_buf[i] + (int)s_ovl_pcm[s_ovl_pos];
+                if (v < -32768) v = -32768; else if (v > 32767) v = 32767;
+                s_out_buf[i] = (int16_t)v;
+            }
+            if (s_ovl_pos >= s_ovl_len) s_ovl_pos = -1;   /* finished */
+        }
+
+        /* Enqueue inside the lock so a concurrent caller's queue re-check sees the
+         * new size. SDL_QueueAudio is internally locked; nesting s_mtx is safe. */
+        SDL_QueueAudio(s_audio_dev, s_out_buf, out_bytes);
+
+#if !defined(SWOS_WASM_BUILD) && !(defined(__AROS__) && defined(SWOS_SDL3_BUILD))
+        /* If a long main-thread stall left us under target, top up with silence
+         * rather than mixing multiple ticks (which would desync the fade tempo).
+         * WASM does NOT do this — it would stutter, since the once-per-frame pump
+         * regularly leaves us under target. Instead AudioSDL_Tick is called in a
+         * loop (Platform_RenderFrame) so the queue fills with REAL ticks; the device
+         * drains at real time so the song tempo stays correct. */
+        queued_bytes = SDL_GetQueuedAudioSize(s_audio_dev);
+        if (queued_bytes + out_bytes < target_bytes) {
+            SDL_memset(s_out_buf, 0, (size_t)out_bytes);
+            SDL_QueueAudio(s_audio_dev, s_out_buf, out_bytes);
+            if (s_audio_diagnostics) ++s_silence_pads;
+        }
+#endif
+
+    }
 
     SDL_UnlockMutex(s_mtx);
 }

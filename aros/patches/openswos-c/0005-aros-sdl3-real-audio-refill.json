@@ -1,0 +1,13 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch"
+  ],
+  "rationale": "On AROS native SDL3 refill the existing 80ms source queue with up to four real 20ms chunks under the mixer mutex instead of injecting silent recovery chunks. Bound per-call work and stop at queue target; preserve other backends. Simulation, AI, frame pacing and device buffer defaults are unchanged.",
+  "target": "__AROS__ && SWOS_SDL3_BUILD",
+  "verification": "Production mixer capture probe RED before change (silent block and sequence mismatch), GREEN after: 80ms real fill; one second of drained/refilled PCM has exact sample sequence; full queue does not advance source; draining device bounded to four chunks. Host compilation exercises AROS conditional only, not native AHI. SDL2 and non-AROS SDL3 characterization probes pass unchanged; full v11 SDL3 compile/link passes; SDL2 reference full compile/link passes; host SDL3 boundary and AROS replay-path probes pass. Native execution/listening pending v11-1 availability.",
+  "upstream_status": "local, not submitted"
+}

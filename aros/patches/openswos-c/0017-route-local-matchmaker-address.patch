@@ -1,0 +1,33 @@
+diff --git a/src/mm_client.c b/src/mm_client.c
+index de340c4..a61cf0c 100644
+--- a/src/mm_client.c
++++ b/src/mm_client.c
+@@ -581,7 +581,27 @@ static void send_local_addresses(void)
+         uint32_t loopback;
+         uint8_t o[4] = { 127, 0, 0, 1 };
+         memcpy(&loopback, o, sizeof loopback);
+-        snprintf(msg, sizeof msg, "%lu:%u", (unsigned long)loopback, (unsigned)port);
++        /* Without getifaddrs (native AROS), loopback alone omits the LAN
++         * candidate. Ask the UDP routing table which local address reaches
++         * this server. Connecting a fresh datagram socket sends no packet;
++         * advertise the LIVE ENet port, never the temporary probe's port. */
++#ifndef __EMSCRIPTEN__
++        if (s_mm.server) {
++            ENetSocket probe = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
++            if (probe != ENET_SOCKET_NULL) {
++                ENetAddress routed;
++                if (enet_socket_connect(probe, &s_mm.server->address) == 0 &&
++                    enet_socket_get_address(probe, &routed) == 0 &&
++                    routed.host != ENET_HOST_ANY && routed.host != loopback) {
++                    used = (size_t)snprintf(msg, sizeof msg, "%lu:%u,",
++                                           (unsigned long)routed.host, (unsigned)port);
++                }
++                enet_socket_destroy(probe);
++            }
++        }
++#endif
++        snprintf(msg + used, sizeof msg - used, "%lu:%u",
++                 (unsigned long)loopback, (unsigned)port);
+     }
+ 
+     send_text(H_INFO, msg);

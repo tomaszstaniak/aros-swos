@@ -10,12 +10,13 @@
 
 #ifdef SWOS_NETPLAY
 
-#include <SDL.h>        /* SDL_Delay in the self-test */
+#include "swos_sdl.h"        /* SDL_Delay in the self-test */
 #include "ggponet.h"
 
 #include <unistd.h>         /* close -- the self-test's port probe */
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include "swos_aros_net.h"
 
 _Static_assert(NETPLAY_EVENT_RUNNING == (int)GGPO_EVENTCODE_RUNNING &&
                NETPLAY_EVENT_NETWORK_ERROR == (int)GGPO_EVENTCODE_NETWORK_ERROR,

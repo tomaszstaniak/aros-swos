@@ -1,0 +1,11 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch"
+  ],
+  "rationale": "Replay output paths on AROS containing a volume/assign colon are already anchored and must not be prefixed by the save drawer. Bare replay names and non-AROS semantics are preserved. No simulation changes.",
+  "target": "AROS SDL backend",
+  "verification": "Production replay_v2.c resolver compiled into regression probe: three AROS colon cases RED before fix, all eight cases GREEN after; six host cases GREEN including colon-containing bare filename. Full v11 SDL3 cross-build passes; SDL2-reference host probe also passes; native runtime not retested because user requested VM release.",
+  "upstream_status": "local, not submitted"
+}

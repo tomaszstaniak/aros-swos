@@ -1,0 +1,26 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0001-aros-sdl2-bringup.patch",
+    "0002-native-sdl3-boundary.patch",
+    "0003-aros-replay-assign-path.patch",
+    "0004-audio-observations.patch",
+    "0005-aros-sdl3-real-audio-refill.patch",
+    "0006-save-write-errors.patch",
+    "0007-aros-native-network.patch",
+    "0008-preboot-asset-load.patch",
+    "0009-current-data-selftest-ids.patch",
+    "0010-aros-data-converter-paths.patch",
+    "0011-sdl-heap-alignment.patch",
+    "0012-linear-json-byte-load.patch",
+    "0013-aros-pthread-socket-mappings.patch",
+    "0014-aros-sdl-environment.patch",
+    "0015-aros-native-worker-shutdown.patch",
+    "0016-aros-report-pthread-context.patch"
+  ],
+  "rationale": "Without getifaddrs, the matchmaker advertised only loopback and omitted its LAN candidate. Query the route to the connected server through a temporary UDP socket, advertise the live ENet socket port, close the temporary socket and retain loopback. Preserve browser fallback and existing interface enumeration. No simulation change.",
+  "target": "Native socket targets without interface enumeration, including AROS v11/v1 and AArch64 v1",
+  "verification": "Native v11 ordinary-menu login RED: only127.0.0.1:1024, checker RC1. GREEN:10.0.2.15:1024 plus127.0.0.1:1024, checker RC0; normal-menu open and accept reference peer passed signaling START, reference peer RC0. Native v1 complete matchmaker self-test passed with both candidates and shared port. Both native processes RC0 without shutdown warnings. All three target source/binary receipts match current source. Exact17-patch reconstruction matched974 tracked regular files; upstream clean. Full Internet match and Pi execution remain unverified.",
+  "upstream_status": "local, not submitted",
+  "upstream_review": "Current benbaker76/OpenSWOS mm_client.c blob1a1c04ee5dc52f1c25463b1c996e77a042f5e267, checked2026-10-24, retains loopback-only fallback; latest path commitc6ebb3aabe895f1ca723b3c32324b40755f94e3a."
+}

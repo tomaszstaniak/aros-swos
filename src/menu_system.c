@@ -1769,7 +1769,7 @@ void MenuProc(void)
     CallMenuOnSelect((void *)onSelectPtr, (void *)selectedEntry);
     SWOS_AUTOSKIP_LOG("MenuProc: <- CallMenuOnSelect (exitMenu after=%u)", (unsigned)_exitMenu);
 
-no_event_or_done:
+no_event_or_done:; /* A label precedes a statement in C11 (GCC10). */
 #ifdef SWOS_SDL_BUILD
     /* Menu navigation log: every direction the menu sees, what it walked through and
      * where the cursor ended up -- for a cursor that will not move on one machine

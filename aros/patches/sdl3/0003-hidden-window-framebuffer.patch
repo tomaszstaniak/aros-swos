@@ -1,0 +1,85 @@
+# SDL3 3.4.12 on AROS: open the system window on demand for a hidden window
+#
+# The AROS backend only opens the Intuition window in AROS_ShowWindow_Internal(),
+# so a window created with SDL_WINDOW_HIDDEN has no data->win yet and every
+# attempt to build a framebuffer fails with "No system window".
+#
+# SDL allows SDL_GetWindowSurface() on a hidden window and applications rely on
+# it: OpenLoco creates its window hidden, builds the software renderer, and only
+# then calls SDL_ShowWindow(). On AROS that sequence was impossible - the game
+# aborted startup with "Unable to create software renderer".
+#
+# Open the system window on demand instead; the later SDL_ShowWindow() then only
+# activates it.
+#
+# Applied by scripts/fetch-deps.sh after the contrib AROS patch.
+# Worth sending to aros-development-team/contrib.
+
+# Second part, added 2026-09-22: AROS_DestroyWindow() cleared window->internal
+# and then called AROS_CloseWindowSafely(), which reads the window's menu state
+# through that pointer. Stock SDL never reached that call with a window open -
+# SDL_DestroyWindow() hides a shown window first and AROS_HideWindow() closes
+# it - but the first part of this patch creates exactly that state: an SDL
+# window still flagged hidden, with its Intuition window opened on demand.
+# Destroying one crashed with "Illegal address access" in
+# AROS_CloseWindowSafely. Proved one process per case against the contrib base
+# and against this patch (backlog item 24). The fix closes the system window
+# before clearing the pointer.
+#
+# Saved 2026-09-13, second part 2026-09-22.
+
+--- a/src/video/aros/SDL_arosframebuffer.c
++++ b/src/video/aros/SDL_arosframebuffer.c
+@@ -78,6 +78,19 @@
+     }
+ 
+ 	if (!data->win) {
++		/* The Intuition window is normally opened by AROS_ShowWindow_Internal(),
++		 * so a window created with SDL_WINDOW_HIDDEN has none yet. SDL allows
++		 * SDL_GetWindowSurface() on a hidden window, and applications do exactly
++		 * that: OpenLoco creates its window hidden, builds the software renderer,
++		 * and only then calls SDL_ShowWindow(). Failing here made that sequence
++		 * impossible on AROS. Open the system window on demand instead; the
++		 * later SDL_ShowWindow() then only activates it. */
++		D(bug("[SDL3:arosfb] %s: no window ptr yet, opening it on demand\n", __func__));
++		AROS_ShowWindow_Internal(_this, window);
++		data = (SDL_WindowData *) window->internal;
++	}
++
++	if (!data->win) {
+ 		D(bug("[SDL3:arosfb] %s: ERROR: no window ptr\n", __func__));
+         return SDL_SetError("No system window");
+     }
+--- a/src/video/aros/SDL_aroswindow.c
++++ b/src/video/aros/SDL_aroswindow.c
+@@ -777,7 +777,18 @@
+ 	D(bug("[SDL3:aroswindow] %s()\n", __func__));
+ 
+ 	SDL_WindowData *data = (SDL_WindowData *) window->internal;
+-	
++
++	/* Close the Intuition window while window->internal still points at data:
++	 * AROS_CloseWindowSafely() reads the menu state through it. Clearing the
++	 * pointer first made that a NULL dereference ("Illegal address access").
++	 * Stock SDL never got here with a window open - SDL_DestroyWindow() hides
++	 * a shown window first, and AROS_HideWindow() closes it - but a hidden
++	 * window whose system window was opened on demand for a framebuffer does. */
++	if (data && data->win) {
++		AROS_CloseWindowSafely(window, data->win);
++		data->win = NULL;
++	}
++
+ 	window->internal = NULL;
+ 
+ 	if (data) {
+@@ -785,10 +796,6 @@
+ 
+ 		REMOVE(&data->node);
+ 
+-		if (data->win) {
+-			AROS_CloseWindowSafely(window, data->win);
+-			data->win = NULL;
+-		}
+ 		if (data->region)
+ 			DisposeRegion(data->region);
+ 

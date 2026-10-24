@@ -14,7 +14,7 @@
 #ifdef SWOS_DEBUG_SFX
 
 #include <stdint.h>
-#include <SDL.h>
+#include "swos_sdl.h"
 
 #include "sfx_debug.h"
 #include "sfx_ids.h"

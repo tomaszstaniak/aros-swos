@@ -1,0 +1,8 @@
+{
+  "base": "SDL3 3.4.12",
+  "archive_sha256": "f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7",
+  "predecessors": [],
+  "origin": "AROS contrib 4b9155332fe73d41159c417fcec3ed35679912ad: SDL3/main/SDL3-3.4.12-aros.diff",
+  "sha256": "d4ce803bc97a257aef43c78cd9bf0d7d82981bb51afdd3cf2c559bcbd7bf88e6",
+  "verification": "187 SDL3 modules compile for AROS AArch64; SDL3 window/input probe and full offline game link. Pi runtime unverified. Imported unchanged; no claim of authorship."
+}

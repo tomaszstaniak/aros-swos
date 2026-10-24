@@ -90,6 +90,9 @@ void DosSound_ChantVolume(int32_t volume);
 /* Everything off: the match is over, or the sound is being reset under it. */
 void DosSound_Stop(void);
 
+/* Before SDL quits: finish the asynchronous sample loader. */
+void DosSound_Shutdown(void);
+
 /* --dos-sound-selftest: every file of the tables is there and every table entry
  * names one. Returns the number of failures. */
 int32_t DosSound_SelfTest(void);

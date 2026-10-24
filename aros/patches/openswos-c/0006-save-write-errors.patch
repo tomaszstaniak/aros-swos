@@ -1,0 +1,35 @@
+diff --git a/src/resload.c b/src/resload.c
+index 9d38ffb..ac90c81 100644
+--- a/src/resload.c
++++ b/src/resload.c
+@@ -194,8 +194,10 @@ static uint32_t fs_save(const char *path, const uint8_t *src, uint32_t n)
+     FILE *f = fopen(path, "wb");
+     if (!f) return 0;
+     size_t put = fwrite(src, 1, n, f);
+-    fclose(f);
+-    return (uint32_t)put;
++    int closed = fclose(f);
++    /* Buffered writes can fail only on close. A nonzero partial byte count
++     * must not be mistaken for a successful save by rob_save. */
++    return put == n && closed == 0 ? n : 0;
+ }
+ 
+ static uint32_t fs_delete(const char *path)
+diff --git a/src/swos_io.c b/src/swos_io.c
+index 3e42edb..bb03da2 100644
+--- a/src/swos_io.c
++++ b/src/swos_io.c
+@@ -474,10 +474,11 @@ int swos_io_save(const uint8_t *name, const uint8_t *buf, uint32_t size)
+     FILE *f = fopen(path, "wb");
+     if (!f) return 1;
+     size_t put = fwrite(buf, 1, size, f);
+-    fclose(f);
++    int closed = fclose(f);
++    if (put != size || closed != 0) return 1;
+     /* Closed before committing — the commit requires it. */
+     swos_save_commit();
+-    return (put == size) ? 0 : 1;
++    return 0;
+ }
+ 
+ /* ---- Data root + save durability (see swos_io.h) -------------------- */

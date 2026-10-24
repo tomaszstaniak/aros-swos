@@ -1,0 +1,272 @@
+diff --git a/include/dos_sound.h b/include/dos_sound.h
+index b207083..c13b28c 100644
+--- a/include/dos_sound.h
++++ b/include/dos_sound.h
+@@ -90,6 +90,9 @@ void DosSound_ChantVolume(int32_t volume);
+ /* Everything off: the match is over, or the sound is being reset under it. */
+ void DosSound_Stop(void);
+ 
++/* Before SDL quits: finish the asynchronous sample loader. */
++void DosSound_Shutdown(void);
++
+ /* --dos-sound-selftest: every file of the tables is there and every table entry
+  * names one. Returns the number of failures. */
+ int32_t DosSound_SelfTest(void);
+diff --git a/include/match_report.h b/include/match_report.h
+index fa933fc..ee8ddcf 100644
+--- a/include/match_report.h
++++ b/include/match_report.h
+@@ -55,4 +55,7 @@ int32_t MatchReport_Pending(void);
+  * they run on threads of their own, which exit() would cut off. */
+ void MatchReport_Flush(uint32_t waitMs);
+ 
++/* Process exit: finish the report and join every native upload worker. */
++void MatchReport_Shutdown(void);
++
+ #endif /* MATCH_REPORT_H */
+diff --git a/include/replay_v2.h b/include/replay_v2.h
+index 6070568..e183ebb 100644
+--- a/include/replay_v2.h
++++ b/include/replay_v2.h
+@@ -28,6 +28,9 @@
+  * `autoSave`: also keep a dated copy of each match ([replays] auto_save). */
+ void    ReplayRec_Configure(const char *path, int32_t autoSave);
+ 
++/* Join an outstanding checkpoint without starting a new recording/write. */
++void    ReplayRec_WaitCheckpoint(void);
++
+ /* GameLoop's own hooks, in the order a frame calls them. */
+ void    ReplayRec_MatchStart(void);     /* before the first frame */
+ void    ReplayRec_FrameBegin(void);     /* the camera has moved for this frame */
+diff --git a/src/dos_sound.c b/src/dos_sound.c
+index 9ba0e8e..b542a77 100644
+--- a/src/dos_sound.c
++++ b/src/dos_sound.c
+@@ -371,6 +371,15 @@ static void preload(void)
+ #endif
+ }
+ 
++/* Join even an already-finished loader: its SDL handle owns native resources. */
++void DosSound_Shutdown(void)
++{
++    if (s_loader) {
++        SDL_WaitThread(s_loader, NULL);
++        s_loader = NULL;
++    }
++}
++
+ /* SWOS_DOS_SOUND_TRACE=1: every sample started, on stderr. */
+ static int32_t trace_on(void)
+ {
+diff --git a/src/main.c b/src/main.c
+index cda21d6..b44f833 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -344,8 +344,33 @@ static const char *match_kv(const char *arg, const char *key)
+     return arg + 2 + klen + 1;
+ }
+ 
++#ifdef __AROS__
++/* AROS SDL workers are DOS processes: leaving through exit() must join them
++ * before this executable and its C runtime libraries are unloaded. */
++static int s_platform_init_attempted;
++static int s_native_shutdown_done;
++
++static void native_shutdown(void)
++{
++    if (s_native_shutdown_done) return;
++    s_native_shutdown_done = 1;
++    ReplayRec_WaitCheckpoint();
++    DosSound_Shutdown();
++    MatchReport_Shutdown();
++    if (s_platform_init_attempted)
++        Platform_Shutdown();
++    SDL_Quit();
++}
++#endif
++
+ int main(int argc, char **argv)
+ {
++#ifdef __AROS__
++    if (atexit(native_shutdown) != 0) {
++        fprintf(stderr, "Cannot register native process cleanup\n");
++        return 1;
++    }
++#endif
+     /* Line-buffer stdout. Every self-test and harness in here reports progress
+      * as it goes, and stdout to a FILE or a PIPE is block buffered -- so a run
+      * that is killed, hangs, or is watched from another terminal shows nothing,
+@@ -1358,13 +1383,24 @@ int main(int argc, char **argv)
+      * bad path or a stale .swr fails immediately, not after the intro. */
+     if (replay_file &&
+         ReplayTest_Load(replay_file, replay_level, replay_max_errors, replay_skip) != 0) {
++#ifdef __AROS__
++        native_shutdown();
++#else
+         SDL_Quit();
++#endif
+         return 1;
+     }
+ 
++#ifdef __AROS__
++    s_platform_init_attempted = 1;
++#endif
+     if (Platform_Init(&opts) != 0) {
+         fprintf(stderr, "Platform_Init failed\n");
++#ifdef __AROS__
++        native_shutdown();
++#else
+         SDL_Quit();
++#endif
+         return 1;
+     }
+ 
+@@ -1385,8 +1421,12 @@ int main(int argc, char **argv)
+     Settings_AppendMissing(&opts, ini_path);
+ 
+     MatchReport_Flush(5000);        /* a match report still on its way to the server */
++#ifdef __AROS__
++    native_shutdown();
++#else
+     Platform_Shutdown();
+     SDL_Quit();
++#endif
+     return 0;
+ }
+ 
+diff --git a/src/match_report.c b/src/match_report.c
+index 572a4bd..a20c3a6 100644
+--- a/src/match_report.c
++++ b/src/match_report.c
+@@ -506,13 +506,39 @@ static void prune(const char *dir)
+ 
+ static SDL_atomic_t s_uploading;         /* upload threads still running */
+ 
+-typedef struct {
++typedef struct Upload {
+     char     host[72];
+     uint16_t port;
+     uint8_t *data;
+     uint32_t len;
++#ifdef __AROS__
++    SDL_Thread *thread;
++    SDL_atomic_t done;
++    struct Upload *next;
++#endif
+ } Upload;
+ 
++#ifdef __AROS__
++static Upload *s_uploads;
++
++/* Only the main thread owns this list. A worker publishes completion, then
++ * WaitThread joins its native process before we release its argument/handle. */
++static void reap_uploads(int wait_all)
++{
++    Upload **link = &s_uploads;
++    while (*link) {
++        Upload *u = *link;
++        if (wait_all || SDL_AtomicGet(&u->done)) {
++            SDL_WaitThread(u->thread, NULL);
++            *link = u->next;
++            free(u);
++        } else {
++            link = &u->next;
++        }
++    }
++}
++#endif
++
+ /* Where: SWOS_REPORTS, else the server this build logs in to. "" = nowhere. */
+ static int32_t upload_target(char *host, size_t cap, uint16_t *port)
+ {
+@@ -648,8 +674,12 @@ static int SDLCALL upload_thread(void *arg)
+     else
+         fprintf(stderr, "[report] sent to %s:%u (%u bytes)\n", u->host, (unsigned)u->port, (unsigned)u->len);
+     free(u->data);
+-    free(u);
+     SDL_AtomicAdd(&s_uploading, -1);
++#ifdef __AROS__
++    SDL_AtomicSet(&u->done, 1);
++#else
++    free(u);
++#endif
+     return 0;
+ }
+ #endif
+@@ -661,6 +691,9 @@ static void upload(const uint8_t *zip, uint32_t zipLen)
+     Upload *u;
+     uint32_t n;
+ 
++#ifdef __AROS__
++    reap_uploads(0);
++#endif
+     if (!sending() || zipLen > REPORT_ZIP_MAX)
+         return;
+     u = (Upload *)calloc(1, sizeof *u);
+@@ -691,7 +724,13 @@ static void upload(const uint8_t *zip, uint32_t zipLen)
+         SDL_AtomicAdd(&s_uploading, 1);
+         t = SDL_CreateThread(upload_thread, "match report", u);
+         if (t) {
++#ifdef __AROS__
++            u->thread = t;
++            u->next = s_uploads;
++            s_uploads = u;
++#else
+             SDL_DetachThread(t);
++#endif
+             return;
+         }
+         SDL_AtomicAdd(&s_uploading, -1);
+@@ -783,6 +822,18 @@ void MatchReport_Flush(uint32_t waitMs)
+         SDL_Delay(20);
+ }
+ 
++/* A bounded UI flush is insufficient at process exit on native AROS: no
++ * worker may outlive the executable and its socket/C runtime libraries. */
++void MatchReport_Shutdown(void)
++{
++#ifdef __AROS__
++    MatchReport_Finish();
++    reap_uploads(1);
++#else
++    MatchReport_Flush(5000);
++#endif
++}
++
+ void MatchReport_Poll(void)
+ {
+     const uint8_t *msg;
+@@ -790,6 +841,9 @@ void MatchReport_Poll(void)
+     uint16_t gen;
+     P2PLinkState st;
+ 
++#ifdef __AROS__
++    reap_uploads(0);
++#endif
+     if (!s_rep.active || !s_rep.submitted)
+         return;
+     st = P2PLink_State();
+@@ -818,5 +872,6 @@ void MatchReport_Poll(void)   {}
+ void MatchReport_Finish(void) {}
+ int32_t MatchReport_Pending(void) { return 0; }
+ void MatchReport_Flush(uint32_t waitMs) { (void)waitMs; }
++void MatchReport_Shutdown(void) {}
+ 
+ #endif
+diff --git a/src/replay_v2.c b/src/replay_v2.c
+index 366488a..1d5419a 100644
+--- a/src/replay_v2.c
++++ b/src/replay_v2.c
+@@ -956,6 +956,12 @@ static void ckpt_join(void)
+     }
+ }
+ 
++/* The checkpoint owns a complete immutable snapshot; let its write finish. */
++void ReplayRec_WaitCheckpoint(void)
++{
++    ckpt_join();
++}
++
+ void ReplayRec_Checkpoint(void)
+ {
+     SrpContent c;

@@ -1,0 +1,227 @@
+diff --git a/src/build_info.c b/src/build_info.c
+index 6183595..16b9d6a 100644
+--- a/src/build_info.c
++++ b/src/build_info.c
+@@ -39,6 +39,8 @@
+ #    define SWOS_PLATFORM_OS "windows"
+ #  elif defined(__APPLE__)
+ #    define SWOS_PLATFORM_OS "macos"
++#  elif defined(__AROS__)
++#    define SWOS_PLATFORM_OS "AROS"
+ #  elif defined(__linux__)
+ #    define SWOS_PLATFORM_OS "linux"
+ #  else
+diff --git a/src/highlight.c b/src/highlight.c
+index 3f417c8..356f1c4 100644
+--- a/src/highlight.c
++++ b/src/highlight.c
+@@ -931,7 +931,7 @@ end_replay:
+     _replayState = 0;
+     return;
+ 
+-after_decode:
++after_decode:; /* A label precedes a statement in C11 (GCC10). */
+     /* loc_10C4E2: overlay drawing */
+ 
+     /* The overlay's coordinates are each release's own, against its own screen:
+diff --git a/src/main.c b/src/main.c
+index 02f2e00..f9d400a 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -136,7 +136,7 @@ static void print_usage(const char *argv0)
+         "  --scale=<1|2|3|4>         Windowed scale at startup. Default: 3.\n"
+         "                            Adjust at runtime with + and - keys.\n"
+         "  --renderer=<software|accel>\n"
+-        "                            Choose SDL renderer. Default: accel.\n"
++        "                            Choose SDL renderer. Default: software on AROS, accel elsewhere.\n"
+         "                            'accel' uses the platform's hardware backend\n"
+         "                            (D3D/OpenGL/Metal); 'software' is a CPU-only\n"
+         "                            fallback for hosts where the hardware path\n"
+@@ -404,7 +404,11 @@ int main(int argc, char **argv)
+     PlatformInitOptions opts;
+     opts.win_scale  = WIN_SCALE;
+     opts.fullscreen = PLATFORM_FULLSCREEN_NONE;
++#ifdef __AROS__
++    opts.renderer   = PLATFORM_RENDERER_SOFTWARE;
++#else
+     opts.renderer   = PLATFORM_RENDERER_ACCEL;
++#endif
+     opts.vsync      = 0;          /* default off — opt-in only */
+     opts.subpixel_scroll = 1;     /* default on — smooth sub-pixel scrolling */
+     opts.scaling_smooth  = 1;     /* default on — even pixels at a non-integer scale */
+@@ -772,10 +776,10 @@ int main(int argc, char **argv)
+             if (!getenv("SDL_VIDEODRIVER")) _putenv("SDL_VIDEODRIVER=dummy");
+             if (!getenv("SDL_AUDIODRIVER")) _putenv("SDL_AUDIODRIVER=dummy");
+ #else
+-            setenv("SWOS_HARNESS_TURBO", "1", 1);
+-            setenv("SWOS_NO_LOG", "1", 1);
+-            if (!getenv("SDL_VIDEODRIVER")) setenv("SDL_VIDEODRIVER", "dummy", 1);
+-            if (!getenv("SDL_AUDIODRIVER")) setenv("SDL_AUDIODRIVER", "dummy", 1);
++            SDL_setenv("SWOS_HARNESS_TURBO", "1", 1);
++            SDL_setenv("SWOS_NO_LOG", "1", 1);
++            if (!getenv("SDL_VIDEODRIVER")) SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
++            if (!getenv("SDL_AUDIODRIVER")) SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+ #endif
+         } else if ((v = match_kv(a, "netplay-state-stream-diff")) != NULL) {
+             return NetplayLiveTest_StreamDiff(v);
+@@ -863,7 +867,7 @@ int main(int argc, char **argv)
+         /* The browser's SDL has no dummy drivers -- it draws to its canvas, which
+          * is where a replay in a browser is meant to go anyway (it was
+          * "SDL_Init: dummy not available" and no game at all). */
+-        setenv("SWOS_NO_LOG", "1", 1);
++        SDL_setenv("SWOS_NO_LOG", "1", 1);
+ #elif defined(_WIN32)
+         _putenv("SWOS_HARNESS_TURBO=1");
+         _putenv("SWOS_NO_LOG=1");
+@@ -872,8 +876,8 @@ int main(int argc, char **argv)
+         if (!getenv("SDL_AUDIODRIVER"))
+             _putenv("SDL_AUDIODRIVER=dummy");
+ #else
+-        setenv("SWOS_HARNESS_TURBO", "1", 1);
+-        setenv("SWOS_NO_LOG", "1", 1);
++        SDL_setenv("SWOS_HARNESS_TURBO", "1", 1);
++        SDL_setenv("SWOS_NO_LOG", "1", 1);
+         /* Headless by default: a replay is a batch run, and a full matrix opens
+          * one window per cell. The dummy video driver keeps every buffer and
+          * blit real — the game still renders into the frontbuffer, which is
+@@ -881,7 +885,7 @@ int main(int argc, char **argv)
+          * --replay-window opts back in to watching it. Respect an
+          * SDL_VIDEODRIVER the caller set explicitly. */
+         if (!replay_window && !getenv("SDL_VIDEODRIVER"))
+-            setenv("SDL_VIDEODRIVER", "dummy", 1);
++            SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
+         /* Silent too, and unconditionally — a replay never wants to be heard,
+          * and a matrix run is 48 of them. The dummy driver still opens a
+          * device and still drains the queue on its own clock, so the audio
+@@ -889,7 +893,7 @@ int main(int argc, char **argv)
+          * with a real card; it just goes nowhere. Respect an explicit
+          * SDL_AUDIODRIVER from the caller. */
+         if (!getenv("SDL_AUDIODRIVER"))
+-            setenv("SDL_AUDIODRIVER", "dummy", 1);
++            SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+ #endif
+         /* The rollback rig plays its own match and leaves gameplay, the fire-hold
+          * lockout and audio to the command line -- and needs no audio device or pump
+@@ -946,7 +950,7 @@ int main(int argc, char **argv)
+         /* Except in a browser, whose SDL has no dummy drivers and whose canvas is
+          * where the replay is meant to be watched anyway. */
+         (void)unpaced;
+-        setenv("SWOS_NO_LOG", "1", 1);
++        SDL_setenv("SWOS_NO_LOG", "1", 1);
+ #elif defined(_WIN32)
+         if (unpaced)
+             _putenv("SWOS_HARNESS_TURBO=1");
+@@ -957,12 +961,12 @@ int main(int argc, char **argv)
+             _putenv("SDL_AUDIODRIVER=dummy");
+ #else
+         if (unpaced)
+-            setenv("SWOS_HARNESS_TURBO", "1", 1);
+-        setenv("SWOS_NO_LOG", "1", 1);
++            SDL_setenv("SWOS_HARNESS_TURBO", "1", 1);
++        SDL_setenv("SWOS_NO_LOG", "1", 1);
+         if (!replay_window && !getenv("SDL_VIDEODRIVER"))
+-            setenv("SDL_VIDEODRIVER", "dummy", 1);
++            SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
+         if (!getenv("SDL_AUDIODRIVER"))
+-            setenv("SDL_AUDIODRIVER", "dummy", 1);
++            SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+ #endif
+         if (replay_width > 0) {
+             opts.res_w = replay_width;
+@@ -982,17 +986,17 @@ int main(int argc, char **argv)
+             opts.view_style = recView ? VIEW_STYLE_DOS : VIEW_STYLE_AMIGA;
+ #if defined(SWOS_WASM_BUILD)
+         /* The browser's SDL has no dummy drivers: it draws to its canvas, as it would. */
+-        setenv("SWOS_NO_LOG", "1", 1);
++        SDL_setenv("SWOS_NO_LOG", "1", 1);
+ #elif defined(_WIN32)
+         _putenv("SWOS_HARNESS_TURBO=1");
+         _putenv("SWOS_NO_LOG=1");
+         if (!getenv("SDL_VIDEODRIVER")) _putenv("SDL_VIDEODRIVER=dummy");
+         if (!getenv("SDL_AUDIODRIVER")) _putenv("SDL_AUDIODRIVER=dummy");
+ #else
+-        setenv("SWOS_HARNESS_TURBO", "1", 1);
+-        setenv("SWOS_NO_LOG", "1", 1);
+-        if (!getenv("SDL_VIDEODRIVER")) setenv("SDL_VIDEODRIVER", "dummy", 1);
+-        if (!getenv("SDL_AUDIODRIVER")) setenv("SDL_AUDIODRIVER", "dummy", 1);
++        SDL_setenv("SWOS_HARNESS_TURBO", "1", 1);
++        SDL_setenv("SWOS_NO_LOG", "1", 1);
++        if (!getenv("SDL_VIDEODRIVER")) SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
++        if (!getenv("SDL_AUDIODRIVER")) SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+ #endif
+         SDL_setenv("SWOS_AUDIO_OFF", "1", 1);
+     }
+@@ -1180,6 +1184,10 @@ int main(int argc, char **argv)
+      * and is ignored on Linux/WASM/older SDL. */
+     SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
+ 
++#ifdef __AROS__
++    /* Keep CPU presentation native; direct GL remains an explicit option. */
++    SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "0");
++#endif
+     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS |
+                   SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) != 0) {
+         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
+diff --git a/src/menu_system.c b/src/menu_system.c
+index 7ae9060..1eb413b 100644
+--- a/src/menu_system.c
++++ b/src/menu_system.c
+@@ -1769,7 +1769,7 @@ void MenuProc(void)
+     CallMenuOnSelect((void *)onSelectPtr, (void *)selectedEntry);
+     SWOS_AUTOSKIP_LOG("MenuProc: <- CallMenuOnSelect (exitMenu after=%u)", (unsigned)_exitMenu);
+ 
+-no_event_or_done:
++no_event_or_done:; /* A label precedes a statement in C11 (GCC10). */
+ #ifdef SWOS_SDL_BUILD
+     /* Menu navigation log: every direction the menu sees, what it walked through and
+      * where the cursor ended up -- for a cursor that will not move on one machine
+diff --git a/src/swos_io.c b/src/swos_io.c
+index 04ddb89..885c177 100644
+--- a/src/swos_io.c
++++ b/src/swos_io.c
+@@ -12,6 +12,9 @@
+  * the fork puts in SDL_filesystem.h rather than a header of its own. */
+ #include <SDL.h>
+ #endif
++#ifdef __AROS__
++#include <unistd.h>
++#endif
+ #include <stdarg.h>
+ #include <string.h>
+ 
+@@ -251,7 +254,21 @@ static int swos_make_dirs(const char *path)
+ 
+ void swos_save_dir_init(void)
+ {
+-#if defined(SWOS_SWITCH_BUILD)
++#if defined(__AROS__)
++    /* Native AROS does not resolve Unix "."/"./" paths. Use the executable
++     * drawer for config, saves and the direct-data existence check. */
++    char *base = SDL_GetBasePath();
++    if (base && *base) {
++        snprintf(s_user_dir, sizeof s_user_dir, "%s", base);
++        (void)chdir(base);
++    } else if (!getcwd(s_user_dir, sizeof s_user_dir)) {
++        fprintf(stderr, "[paths] cannot resolve the AROS game drawer\n");
++    }
++    if (base) SDL_free(base);
++    snprintf(s_save_dir, sizeof s_save_dir, "%s/save", s_user_dir);
++    (void)swos_make_dirs(s_save_dir);
++    return;
++#elif defined(SWOS_SWITCH_BUILD)
+     /* Switch: SDL_GetBasePath() is what MOUNTS the read-only content —
+      * nn::fs::MountRom("rom", ...) happens inside it, on first call. Nothing
+      * else mounts it, so without this every fopen("rom:/...") fails and the
+@@ -554,8 +571,12 @@ int swos_data_exists(const char *rel)
+     const char *p = swos_data_path(rel, buf, (uint32_t)sizeof buf);
+     if (p == buf)
+         return 1;                       /* in the assets folder */
++#ifdef __AROS__
++    return find_nocase(s_user_dir, rel, found, (uint32_t)sizeof found) == 0;
++#else
+     return find_nocase(".", rel, found, (uint32_t)sizeof found) == 0;
+ #endif
++#endif
+ }
+ 
+ const char *swos_assets_dir(void)

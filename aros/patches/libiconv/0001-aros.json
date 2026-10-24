@@ -1,0 +1,7 @@
+{
+  "base": "GNU libiconv 1.19",
+  "origin": "AROS contrib 4b9155332fe73d41159c417fcec3ed35679912ad: development/libs/libiconv/libiconv-1.19-aros.diff",
+  "sha256": "8511387230138865a27facc7549b354caa7273d0d53c9308eca9bb2b5b307212",
+  "verification": "Static libiconv/libcharset build for AROS AArch64; real conversion probe and SDL3/full offline game link; Pi runtime unverified. Imported unchanged.",
+  "archive_sha256": "88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6"
+}

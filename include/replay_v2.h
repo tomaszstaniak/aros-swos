@@ -28,6 +28,9 @@
  * `autoSave`: also keep a dated copy of each match ([replays] auto_save). */
 void    ReplayRec_Configure(const char *path, int32_t autoSave);
 
+/* Join an outstanding checkpoint without starting a new recording/write. */
+void    ReplayRec_WaitCheckpoint(void);
+
 /* GameLoop's own hooks, in the order a frame calls them. */
 void    ReplayRec_MatchStart(void);     /* before the first frame */
 void    ReplayRec_FrameBegin(void);     /* the camera has moved for this frame */

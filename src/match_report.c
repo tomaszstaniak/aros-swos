@@ -34,7 +34,7 @@ static int32_t sending(void)
 #include <time.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include <SDL.h>
+#include "swos_sdl.h"
 
 #include "build_info.h"
 #include "miniz_swos.h"
@@ -48,7 +48,10 @@ static int32_t sending(void)
 #ifndef __EMSCRIPTEN__
 #include <fcntl.h>
 #include <netdb.h>
-#include <poll.h>
+#include "swos_socket_wait.h"
+#ifdef __AROS__
+#include <pthread.h>
+#endif
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -506,12 +509,38 @@ static void prune(const char *dir)
 
 static SDL_atomic_t s_uploading;         /* upload threads still running */
 
-typedef struct {
+typedef struct Upload {
     char     host[72];
     uint16_t port;
     uint8_t *data;
     uint32_t len;
+#ifdef __AROS__
+    pthread_t thread;
+    SDL_atomic_t done;
+    struct Upload *next;
+#endif
 } Upload;
+
+#ifdef __AROS__
+static Upload *s_uploads;
+
+/* Only the main thread owns this list. A worker publishes completion, then
+ * pthread_join also releases its task-local socket context before the node. */
+static void reap_uploads(int wait_all)
+{
+    Upload **link = &s_uploads;
+    while (*link) {
+        Upload *u = *link;
+        if (wait_all || SDL_AtomicGet(&u->done)) {
+            pthread_join(u->thread, NULL);
+            *link = u->next;
+            free(u);
+        } else {
+            link = &u->next;
+        }
+    }
+}
+#endif
 
 /* Where: SWOS_REPORTS, else the server this build logs in to. "" = nowhere. */
 static int32_t upload_target(char *host, size_t cap, uint16_t *port)
@@ -559,13 +588,9 @@ static int32_t upload_target(char *host, size_t cap, uint16_t *port)
 /* Wait until `fd` can do `events`, at most `ms`. */
 static int32_t wait_for(int fd, short events, int ms)
 {
-    struct pollfd pfd;
     int r;
-    pfd.fd = fd;
-    pfd.events = events;
-    pfd.revents = 0;
     do {
-        r = poll(&pfd, 1, ms);
+        r = swos_socket_wait(fd, events, ms);
     } while (r < 0 && errno == EINTR);
     return r > 0 ? 0 : 1;
 }
@@ -604,7 +629,7 @@ static const char *send_report(const Upload *u)
         return "cannot connect";
     }
     freeaddrinfo(res);
-    if (wait_for(fd, POLLOUT, 8000) ||
+    if (wait_for(fd, SWOS_WAIT_WRITE, 8000) ||
         getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&err, &el) != 0 || err != 0) {
         close(fd);
         return "cannot connect";
@@ -614,7 +639,7 @@ static const char *send_report(const Upload *u)
         if (n > 0) {
             done += (uint32_t)n;
         } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
-            if (wait_for(fd, POLLOUT, 15000)) {
+            if (wait_for(fd, SWOS_WAIT_WRITE, 15000)) {
                 close(fd);
                 return "the server stopped taking it";
             }
@@ -625,7 +650,7 @@ static const char *send_report(const Upload *u)
     }
     while (got < sizeof answer) {
         ssize_t n;
-        if (wait_for(fd, POLLIN, 15000)) {
+        if (wait_for(fd, SWOS_WAIT_READ, 15000)) {
             close(fd);
             return "no answer from the server";
         }
@@ -652,10 +677,23 @@ static int SDLCALL upload_thread(void *arg)
     else
         fprintf(stderr, "[report] sent to %s:%u (%u bytes)\n", u->host, (unsigned)u->port, (unsigned)u->len);
     free(u->data);
-    free(u);
     SDL_AtomicAdd(&s_uploading, -1);
+#ifdef __AROS__
+    SDL_AtomicSet(&u->done, 1);
+#else
+    free(u);
+#endif
     return 0;
 }
+#ifdef __AROS__
+/* Native sockets use pthread TLS. SDL's direct DOS process is not registered
+ * with pthread and would alias the main thread's socket-library context. */
+static void *upload_pthread(void *arg)
+{
+    upload_thread(arg);
+    return NULL;
+}
+#endif
 #endif
 
 static void upload(const uint8_t *zip, uint32_t zipLen)
@@ -665,6 +703,9 @@ static void upload(const uint8_t *zip, uint32_t zipLen)
     Upload *u;
     uint32_t n;
 
+#ifdef __AROS__
+    reap_uploads(0);
+#endif
     if (!sending() || zipLen > REPORT_ZIP_MAX)
         return;
     u = (Upload *)calloc(1, sizeof *u);
@@ -691,13 +732,20 @@ static void upload(const uint8_t *zip, uint32_t zipLen)
     u->len = n + zipLen;
 #ifndef __EMSCRIPTEN__
     {
-        SDL_Thread *t;
         SDL_AtomicAdd(&s_uploading, 1);
-        t = SDL_CreateThread(upload_thread, "match report", u);
+#ifdef __AROS__
+        if (pthread_create(&u->thread, NULL, upload_pthread, u) == 0) {
+            u->next = s_uploads;
+            s_uploads = u;
+            return;
+        }
+#else
+        SDL_Thread *t = SDL_CreateThread(upload_thread, "match report", u);
         if (t) {
             SDL_DetachThread(t);
             return;
         }
+#endif
         SDL_AtomicAdd(&s_uploading, -1);
     }
 #endif
@@ -787,6 +835,18 @@ void MatchReport_Flush(uint32_t waitMs)
         SDL_Delay(20);
 }
 
+/* A bounded UI flush is insufficient at process exit on native AROS: no
+ * worker may outlive the executable and its socket/C runtime libraries. */
+void MatchReport_Shutdown(void)
+{
+#ifdef __AROS__
+    MatchReport_Finish();
+    reap_uploads(1);
+#else
+    MatchReport_Flush(5000);
+#endif
+}
+
 void MatchReport_Poll(void)
 {
     const uint8_t *msg;
@@ -794,6 +854,9 @@ void MatchReport_Poll(void)
     uint16_t gen;
     P2PLinkState st;
 
+#ifdef __AROS__
+    reap_uploads(0);
+#endif
     if (!s_rep.active || !s_rep.submitted)
         return;
     st = P2PLink_State();
@@ -822,5 +885,6 @@ void MatchReport_Poll(void)   {}
 void MatchReport_Finish(void) {}
 int32_t MatchReport_Pending(void) { return 0; }
 void MatchReport_Flush(uint32_t waitMs) { (void)waitMs; }
+void MatchReport_Shutdown(void) {}
 
 #endif

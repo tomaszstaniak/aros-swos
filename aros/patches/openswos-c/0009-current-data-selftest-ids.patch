@@ -1,0 +1,31 @@
+diff --git a/src/save_format_json.c b/src/save_format_json.c
+index cf74e6f..a2fcf40 100644
+--- a/src/save_format_json.c
++++ b/src/save_format_json.c
+@@ -4123,7 +4123,7 @@ int DataJson_SelfTest(void)
+         while ((pos = fast_array_next(arr, al, pos, &voff, &vlen, &vt)) != 0) {
+             if (vt != MJSON_TOK_OBJECT) continue;
+             if (mjson_get_string(arr+voff, vlen, "$.id", idbuf, (int)sizeof idbuf) > 0
+-                && strcmp(idbuf, "cupWinnersCup") == 0) {
++                && strcmp(idbuf, "_cupWinnersCup") == 0) {
+                 DataJson_LoadCompetitionCup(arr+voff, vlen, &loaded, 0, strpool, (int)sizeof strpool);
+                 found = 1; break;
+             }
+@@ -4154,7 +4154,7 @@ int DataJson_SelfTest(void)
+     extern CompetitionTournament _euroCup;   /* compiled record */
+     { char *tj = NULL; const char *to; int tol;
+       if (dj_find_comp_record("data_json/competitions/tournaments.json", "competitions",
+-                              "euroCup", &tj, &to, &tol)) {
++                              "_euroCup", &tj, &to, &tol)) {
+         static CompetitionTournament tl; static char tsp[256];
+         DataJson_LoadCompetitionTournament(to, tol, &tl, tsp, (int)sizeof tsp);
+         free(tj);
+@@ -4184,7 +4184,7 @@ int DataJson_SelfTest(void)
+     extern CompetitionLeague _englishLeague;   /* compiled record */
+     { char *lj = NULL; const char *lo; int lol;
+       if (dj_find_comp_record("data_json/competitions/leagues.json", "leagues",
+-                              "englishLeague", &lj, &lo, &lol)) {
++                              "_englishLeague", &lj, &lo, &lol)) {
+         static CompetitionLeague ll; static char lsp[256];
+         DataJson_LoadCompetitionLeague(lo, lol, &ll, lsp, (int)sizeof lsp);
+         free(lj);

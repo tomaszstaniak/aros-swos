@@ -1,0 +1,13 @@
+diff --git a/include/swos_aros_net.h b/include/swos_aros_net.h
+--- a/include/swos_aros_net.h
++++ b/include/swos_aros_net.h
+@@ -13,6 +13,9 @@
+ #include <fcntl.h>
+ #include <sys/ioctl.h>
+ #include <unistd.h>
++/* Newer SDK pthread headers wrap socket calls as cancellation points. Include
++ * them before our mappings so later C++ headers cannot restore SocketBase calls. */
++#include <pthread.h>
+ #ifndef PF_INET
+ #define PF_INET AF_INET
+ #endif

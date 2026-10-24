@@ -16,7 +16,7 @@
 #ifdef SWOS_SDL_BUILD
 
 
-#include <SDL.h>
+#include "swos_sdl.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -136,7 +136,7 @@ static void print_usage(const char *argv0)
         "  --scale=<1|2|3|4>         Windowed scale at startup. Default: 3.\n"
         "                            Adjust at runtime with + and - keys.\n"
         "  --renderer=<software|accel>\n"
-        "                            Choose SDL renderer. Default: accel.\n"
+        "                            Choose SDL renderer. Default: software on AROS, accel elsewhere.\n"
         "                            'accel' uses the platform's hardware backend\n"
         "                            (D3D/OpenGL/Metal); 'software' is a CPU-only\n"
         "                            fallback for hosts where the hardware path\n"
@@ -344,8 +344,33 @@ static const char *match_kv(const char *arg, const char *key)
     return arg + 2 + klen + 1;
 }
 
+#ifdef __AROS__
+/* AROS SDL workers are DOS processes: leaving through exit() must join them
+ * before this executable and its C runtime libraries are unloaded. */
+static int s_platform_init_attempted;
+static int s_native_shutdown_done;
+
+static void native_shutdown(void)
+{
+    if (s_native_shutdown_done) return;
+    s_native_shutdown_done = 1;
+    ReplayRec_WaitCheckpoint();
+    DosSound_Shutdown();
+    MatchReport_Shutdown();
+    if (s_platform_init_attempted)
+        Platform_Shutdown();
+    SDL_Quit();
+}
+#endif
+
 int main(int argc, char **argv)
 {
+#ifdef __AROS__
+    if (atexit(native_shutdown) != 0) {
+        fprintf(stderr, "Cannot register native process cleanup\n");
+        return 1;
+    }
+#endif
     /* Line-buffer stdout. Every self-test and harness in here reports progress
      * as it goes, and stdout to a FILE or a PIPE is block buffered -- so a run
      * that is killed, hangs, or is watched from another terminal shows nothing,
@@ -404,7 +429,11 @@ int main(int argc, char **argv)
     PlatformInitOptions opts;
     opts.win_scale  = WIN_SCALE;
     opts.fullscreen = PLATFORM_FULLSCREEN_NONE;
+#ifdef __AROS__
+    opts.renderer   = PLATFORM_RENDERER_SOFTWARE;
+#else
     opts.renderer   = PLATFORM_RENDERER_ACCEL;
+#endif
     opts.vsync      = 0;          /* default off — opt-in only */
     opts.subpixel_scroll = 1;     /* default on — smooth sub-pixel scrolling */
     opts.scaling_smooth  = 1;     /* default on — even pixels at a non-integer scale */
@@ -772,10 +801,10 @@ int main(int argc, char **argv)
             if (!getenv("SDL_VIDEODRIVER")) _putenv("SDL_VIDEODRIVER=dummy");
             if (!getenv("SDL_AUDIODRIVER")) _putenv("SDL_AUDIODRIVER=dummy");
 #else
-            setenv("SWOS_HARNESS_TURBO", "1", 1);
-            setenv("SWOS_NO_LOG", "1", 1);
-            if (!getenv("SDL_VIDEODRIVER")) setenv("SDL_VIDEODRIVER", "dummy", 1);
-            if (!getenv("SDL_AUDIODRIVER")) setenv("SDL_AUDIODRIVER", "dummy", 1);
+            SDL_setenv("SWOS_HARNESS_TURBO", "1", 1);
+            SDL_setenv("SWOS_NO_LOG", "1", 1);
+            if (!getenv("SDL_VIDEODRIVER")) SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
+            if (!getenv("SDL_AUDIODRIVER")) SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
 #endif
         } else if ((v = match_kv(a, "netplay-state-stream-diff")) != NULL) {
             return NetplayLiveTest_StreamDiff(v);
@@ -863,7 +892,7 @@ int main(int argc, char **argv)
         /* The browser's SDL has no dummy drivers -- it draws to its canvas, which
          * is where a replay in a browser is meant to go anyway (it was
          * "SDL_Init: dummy not available" and no game at all). */
-        setenv("SWOS_NO_LOG", "1", 1);
+        SDL_setenv("SWOS_NO_LOG", "1", 1);
 #elif defined(_WIN32)
         _putenv("SWOS_HARNESS_TURBO=1");
         _putenv("SWOS_NO_LOG=1");
@@ -872,8 +901,8 @@ int main(int argc, char **argv)
         if (!getenv("SDL_AUDIODRIVER"))
             _putenv("SDL_AUDIODRIVER=dummy");
 #else
-        setenv("SWOS_HARNESS_TURBO", "1", 1);
-        setenv("SWOS_NO_LOG", "1", 1);
+        SDL_setenv("SWOS_HARNESS_TURBO", "1", 1);
+        SDL_setenv("SWOS_NO_LOG", "1", 1);
         /* Headless by default: a replay is a batch run, and a full matrix opens
          * one window per cell. The dummy video driver keeps every buffer and
          * blit real — the game still renders into the frontbuffer, which is
@@ -881,7 +910,7 @@ int main(int argc, char **argv)
          * --replay-window opts back in to watching it. Respect an
          * SDL_VIDEODRIVER the caller set explicitly. */
         if (!replay_window && !getenv("SDL_VIDEODRIVER"))
-            setenv("SDL_VIDEODRIVER", "dummy", 1);
+            SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
         /* Silent too, and unconditionally — a replay never wants to be heard,
          * and a matrix run is 48 of them. The dummy driver still opens a
          * device and still drains the queue on its own clock, so the audio
@@ -889,7 +918,7 @@ int main(int argc, char **argv)
          * with a real card; it just goes nowhere. Respect an explicit
          * SDL_AUDIODRIVER from the caller. */
         if (!getenv("SDL_AUDIODRIVER"))
-            setenv("SDL_AUDIODRIVER", "dummy", 1);
+            SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
 #endif
         /* The rollback rig plays its own match and leaves gameplay, the fire-hold
          * lockout and audio to the command line -- and needs no audio device or pump
@@ -946,7 +975,7 @@ int main(int argc, char **argv)
         /* Except in a browser, whose SDL has no dummy drivers and whose canvas is
          * where the replay is meant to be watched anyway. */
         (void)unpaced;
-        setenv("SWOS_NO_LOG", "1", 1);
+        SDL_setenv("SWOS_NO_LOG", "1", 1);
 #elif defined(_WIN32)
         if (unpaced)
             _putenv("SWOS_HARNESS_TURBO=1");
@@ -957,12 +986,12 @@ int main(int argc, char **argv)
             _putenv("SDL_AUDIODRIVER=dummy");
 #else
         if (unpaced)
-            setenv("SWOS_HARNESS_TURBO", "1", 1);
-        setenv("SWOS_NO_LOG", "1", 1);
+            SDL_setenv("SWOS_HARNESS_TURBO", "1", 1);
+        SDL_setenv("SWOS_NO_LOG", "1", 1);
         if (!replay_window && !getenv("SDL_VIDEODRIVER"))
-            setenv("SDL_VIDEODRIVER", "dummy", 1);
+            SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
         if (!getenv("SDL_AUDIODRIVER"))
-            setenv("SDL_AUDIODRIVER", "dummy", 1);
+            SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
 #endif
         if (replay_width > 0) {
             opts.res_w = replay_width;
@@ -982,17 +1011,17 @@ int main(int argc, char **argv)
             opts.view_style = recView ? VIEW_STYLE_DOS : VIEW_STYLE_AMIGA;
 #if defined(SWOS_WASM_BUILD)
         /* The browser's SDL has no dummy drivers: it draws to its canvas, as it would. */
-        setenv("SWOS_NO_LOG", "1", 1);
+        SDL_setenv("SWOS_NO_LOG", "1", 1);
 #elif defined(_WIN32)
         _putenv("SWOS_HARNESS_TURBO=1");
         _putenv("SWOS_NO_LOG=1");
         if (!getenv("SDL_VIDEODRIVER")) _putenv("SDL_VIDEODRIVER=dummy");
         if (!getenv("SDL_AUDIODRIVER")) _putenv("SDL_AUDIODRIVER=dummy");
 #else
-        setenv("SWOS_HARNESS_TURBO", "1", 1);
-        setenv("SWOS_NO_LOG", "1", 1);
-        if (!getenv("SDL_VIDEODRIVER")) setenv("SDL_VIDEODRIVER", "dummy", 1);
-        if (!getenv("SDL_AUDIODRIVER")) setenv("SDL_AUDIODRIVER", "dummy", 1);
+        SDL_setenv("SWOS_HARNESS_TURBO", "1", 1);
+        SDL_setenv("SWOS_NO_LOG", "1", 1);
+        if (!getenv("SDL_VIDEODRIVER")) SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
+        if (!getenv("SDL_AUDIODRIVER")) SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
 #endif
         SDL_setenv("SWOS_AUDIO_OFF", "1", 1);
     }
@@ -1180,6 +1209,10 @@ int main(int argc, char **argv)
      * and is ignored on Linux/WASM/older SDL. */
     SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
 
+#ifdef __AROS__
+    /* Keep CPU presentation native; direct GL remains an explicit option. */
+    SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "0");
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS |
                   SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
@@ -1350,13 +1383,24 @@ int main(int argc, char **argv)
      * bad path or a stale .swr fails immediately, not after the intro. */
     if (replay_file &&
         ReplayTest_Load(replay_file, replay_level, replay_max_errors, replay_skip) != 0) {
+#ifdef __AROS__
+        native_shutdown();
+#else
         SDL_Quit();
+#endif
         return 1;
     }
 
+#ifdef __AROS__
+    s_platform_init_attempted = 1;
+#endif
     if (Platform_Init(&opts) != 0) {
         fprintf(stderr, "Platform_Init failed\n");
+#ifdef __AROS__
+        native_shutdown();
+#else
         SDL_Quit();
+#endif
         return 1;
     }
 
@@ -1377,8 +1421,12 @@ int main(int argc, char **argv)
     Settings_AppendMissing(&opts, ini_path);
 
     MatchReport_Flush(5000);        /* a match report still on its way to the server */
+#ifdef __AROS__
+    native_shutdown();
+#else
     Platform_Shutdown();
     SDL_Quit();
+#endif
     return 0;
 }
 
