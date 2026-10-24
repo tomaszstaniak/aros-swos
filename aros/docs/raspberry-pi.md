@@ -5,16 +5,16 @@ separate from x86_64 ABIv11. The compiler wrapper selects
 `aarch64-unknown-aros`, the large code model and the matching compiler-rt.
 No Linux or hosted Macaros libraries are used.
 
-Verified 2026-10-23:
+Verified 2026-10-24 (build results plus bounded native smoke):
 
 | Component | Result |
 |---|---|
 | GNU libiconv 1.19/libcharset | Static AArch64 libraries built; real conversion probe links |
 | SDL 3.4.12 | All 187 AROS static-library units compile; window/image/input probe links |
 | Selected OpenSWOS C engine, SDL3, offline | Complete game compiles and links; ELF64 little-endian AROS AArch64 verified |
-| Native data converter | CLI swosdata compiles/links as AROS AArch64; conversion on Pi unverified |
-| Native C++ / GGPO networking | AROS libc++, libc++abi and libunwind built against the native Pi SDK; container/exception probe and NETPLAY=1 game link pass. Native execution remains open |
-| Native execution | Open: Pi pool slot is not ready for ordinary tests; input/results exchange acceptance is incomplete |
+| Native data converter | Native CLI converted the owned Amiga ADFs:117 game files,15 derived AGA files and76 team files; RC0 |
+| Native C++ / GGPO networking | AROS libc++, libc++abi and libunwind built against the native Pi SDK; upstream pthread-TLS fix imported; native container/exception probe prints native-cxx6 with a space before6; full NETPLAY=1 game starts with dummy audio |
+| Native execution | rpi-1 offline SD smoke passed: native apkg install/verify, converter, silent intro/menu keyboard and rendered replay. USB/network/real hardware remain unverified |
 
 The offline binary is a build milestone. It does not establish game execution,
 controls, audio or performance on Pi. The v11 complete network-enabled build
@@ -131,3 +131,11 @@ The original full Pi build was rejected by the native loader at ELF TLS relocati
 The selected SDL3 has a private environment: the old boundary did not import explicit AmigaDOS driver selections. Patch18 forwards SDL_AUDIODRIVER and SDL_VIDEODRIVER before initialization. The same native environment probe printed `missing; FAIL` against the old adapter and `dummy; PASS` against the new one. With dummy audio, the full network-enabled game displayed normal intro/title/main menu and accepted keyboard input into FRIENDLY options; a recorded match also rendered in its SDL3 window. No network session, physical pad, complete played Pi match, audio output or real-Pi performance claim follows from this smoke.
 
 Without the working dummy override, startup wedged the QEMU pilot with the host stack inside bcm2835_dma_write. The same emulator rendered the game with dummy audio. The saved samples identify the stalled host path, not a demonstrated defect in the game's renderer or in real hardware. The experimental Pi launcher therefore selects silent audio until hardware feedback is available.
+
+## Published experimental Pi package
+
+[0.1.0-rc1-pi1](https://github.com/tomaszstaniak/aros-swos/releases/tag/v0.1.0-rc1-pi1) is published separately from the x86_64 build, with complete source/runtime snapshots and no original game data. [Index PR40](https://github.com/tomaszstaniak/arospkg-index/pull/40) was reviewed and merged; publish workflow40122350837 passed.
+
+The 17,574,302-byte ZIP has SHA-256 `ca04daedb1703f2c4982bcd008d32e8c563292a4930a945bf909675d975e2f92`; SWOS has SHA-256 `6393d5886d80ac225ef7cadcd7167c75518d6e914d00f3f80a2df03c81366488`. Native apkg0.4 installed it from a preseeded cache on rpi-1 and reported246 files as installed, none changed/missing/foreign. swosdata imported the owned ADFs on Pi with RC0. The final package launcher opened normal intro/title/main menu after this fresh conversion. Network download cannot be tested on the current pilot.
+
+The VM is stopped/released; the entire owned SWPI1024 test directory was removed from the SD after preserving evidence. No system files, SDK or clean upstream were modified.
