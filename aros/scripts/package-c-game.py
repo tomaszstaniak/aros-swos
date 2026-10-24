@@ -19,17 +19,22 @@ receipt = json.loads((a.build / 'build.json').read_text())
 pin = json.loads((ROOT / 'upstreams.json').read_text())['repositories']['openswos-c']['commit']
 if receipt['upstream'] != pin or receipt['backend'] != 'sdl3':
     p.error('requires the selected pinned C upstream and SDL3')
-if receipt['arch'] != 'x86_64' or receipt['abi'] not in ('v11', 'v1') or receipt['netplay'] != 'on':
-    p.error('this candidate requires a complete x86_64 v11/v1 networking build')
+if (receipt['arch'], receipt['abi']) not in {('x86_64', 'v11'), ('x86_64', 'v1'), ('aarch64', 'v1')} or receipt['netplay'] != 'on':
+    p.error('requires a complete supported native networking build')
+pi = receipt['arch'] == 'aarch64'
+machine = 183 if pi else 62
 if subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=source, text=True).strip() != pin:
     p.error('source checkout differs from the selected pin')
 if a.out.exists():
     p.error('output already exists; choose a fresh candidate filename')
+for name, digest in receipt['source_sha256'].items():
+    if hashlib.sha256((source / name).read_bytes()).hexdigest() != digest:
+        p.error('source no longer matches the build receipt: ' + name)
 files = {}
 for name, path in [('SWOS', a.build / 'SWOS'), ('swosdata', a.converter)]:
     data = path.read_bytes()
-    if len(data) < 64 or data[:6] != b'\x7fELF\x02\x01' or data[7] != 15 or int.from_bytes(data[18:20], 'little') != 62:
-        p.error(name + ' must be an ELF64 AROS x86_64 executable')
+    if len(data) < 64 or data[:6] != b'\x7fELF\x02\x01' or data[7] != 15 or int.from_bytes(data[18:20], 'little') != machine:
+        p.error(name + ' must be an ELF64 AROS ' + receipt['arch'] + ' executable')
     files[name] = data
     if name == 'SWOS' and receipt['sha256'].get(str(path.resolve())) != hashlib.sha256(data).hexdigest():
         p.error('game binary differs from its build receipt')
@@ -68,7 +73,15 @@ for license_file in sorted((ROOT / 'packaging/licenses').glob('*.txt')):
     files['licenses/' + license_file.name] = license_file.read_bytes()
 files['Start'] = b'FailAt 21\nStack 2000000\nSWOS --renderer=software --scale=3 --scaling=sharp\n'
 files['Start-Fullscreen'] = b'FailAt 21\nStack 2000000\nSWOS --renderer=software --fullscreen=desktop --scaling=sharp\n'
-files['ReadMe.txt'] = (ROOT / 'packaging/ReadMe.txt').read_bytes()
+if pi:
+    for name in ('Start', 'Start-Fullscreen'):
+        files[name] = files[name].replace(b'Stack 2000000\n', b'Stack 2000000\nSet SDL_AUDIODRIVER dummy\nSet SWOS_AUDIO_OFF 1\n')
+    for name in ['scripts/build-pi-cxx.py', 'tests/native/check_pi_tls.py', 'tests/native/pi_cxx_runtime_probe.cpp']:
+        files['port-source/' + name] = (ROOT / name).read_bytes()
+    for path in sorted((ROOT / 'patches/pi-cxx').iterdir()):
+        if path.is_file():
+            files['port-source/patches/pi-cxx/' + path.name] = path.read_bytes()
+files['ReadMe.txt'] = (ROOT / ('packaging/ReadMe-Pi.txt' if pi else 'packaging/ReadMe.txt')).read_bytes()
 files['port-source/scripts/package-c-game.py'] = Path(__file__).read_bytes()
 files['port-source/packaging/ReadMe.txt'] = files['ReadMe.txt']
 # Full compiler commands and SDK paths stay in the private build receipt.
@@ -77,7 +90,7 @@ public_receipt['sha256'] = {Path(name).name: digest for name, digest in receipt[
 files['build.json'] = json.dumps(public_receipt, indent=2).encode() + b'\n'
 manifest = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
 files['SHA256SUMS'] = ''.join(digest + '  ' + name + '\n' for name, digest in manifest.items()).encode()
-root = 'OpenSWOS-' + receipt['abi']
+root = 'OpenSWOS-' + ('aarch64-' if pi else '') + receipt['abi']
 a.out.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(a.out, 'x', compression=zipfile.ZIP_DEFLATED) as archive:
     for name, data in sorted(files.items()):

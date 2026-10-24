@@ -1,0 +1,12 @@
+{
+  "origin": "Local AROS-patched LLVM 20.1.0 runtime source snapshot; source contents validated, not a hosted binary dependency",
+  "components": [
+    "libcxx",
+    "libcxxabi",
+    "libunwind",
+    "cmake"
+  ],
+  "files": 12155,
+  "canonical_manifest_sha256": "9cf8f9672eaf28770c9383de1270af6a6dd4002e78161c44401383444197dd80",
+  "sdk_cdefs_sha256": "5d03b518d187fbf3c45cbef839f1a3d6454bb6c0e149481985ea4d6deb9dcb24"
+}

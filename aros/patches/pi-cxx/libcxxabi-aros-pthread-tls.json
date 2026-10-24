@@ -1,0 +1,8 @@
+{
+  "origin": "https://github.com/aros-development-team/AROS/commit/7654818bf1acd25b11cd840a713dc97692bfff55",
+  "base": "recorded LLVM20.1 snapshot in source.json",
+  "scope": "libcxxabi exception storage; native AROS AArch64 uses existing pthread fallback",
+  "upstream_status": "already upstream; imported existing fix, no duplicate submission",
+  "sha256": "90fc764a364170482f1e6c67dcf2b92136ba85ba076a3f31d978b39fe903a9ab",
+  "verification": "2026-10-24: old probe/game each had4 TLS relocations and were rejected by native loader type549; patched probe/game have0. Native rpi-1 probe printed native-cxx6 and returned to Shell. Game window attempt hangs QEMU in bcm2835_dma_write, independent runtime acceptance remains bounded."
+}

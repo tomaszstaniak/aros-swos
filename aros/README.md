@@ -16,4 +16,4 @@ Use a matching AROS compiler and SDK. Paths below are your own installations; do
 
 The sources asset includes the patched GGPO-X/swosgfx sources and the complete dependency source archives, notices and glue. Its game source tree omits original-game reverse-engineering reference dumps, which are not build inputs. The public fork retains upstream history; the release game archive contains no original SWOS installation data.
 
-AROS Raspberry Pi has a separate build path described in [raspberry-pi.md](docs/raspberry-pi.md); runtime validation is still pending.
+AROS Raspberry Pi has a separate build path described in [raspberry-pi.md](docs/raspberry-pi.md). The experimental Pi release has an offline QEMU intro/menu/keyboard/rendered-replay smoke test with dummy audio. Real hardware, audio and networking still need testers. The Pi sources asset supplies the complete pinned LLVM runtime snapshot under `llvm-runtimes/`; use it with `scripts/build-pi-cxx.py`, then pass the generated compiler wrapper to the complete game builder.

@@ -1,0 +1,23 @@
+--- a/src/swos_sdl3.c
++++ b/src/swos_sdl3.c
+@@ -47,7 +47,19 @@
+     SDL_SetTextureScaleMode(t, SDL_SCALEMODE_NEAREST);
+   return t;
+ }
+-int SwosSdlInit(Uint32 f) { return SDL_Init(f) ? 0 : -1; }
++int SwosSdlInit(Uint32 f) {
++#ifdef __AROS__
++  /* AmigaDOS variables are not imported into SDL3's private environment.
++   * Forward explicit driver selections before SDL initializes a backend. */
++  static const char *names[] = { "SDL_AUDIODRIVER", "SDL_VIDEODRIVER" };
++  for (size_t i = 0; i < sizeof names / sizeof names[0]; ++i) {
++    const char *value = getenv(names[i]);
++    if (value && SwosSdlSetEnv(names[i], value, 1) != 0)
++      return -1;
++  }
++#endif
++  return SDL_Init(f) ? 0 : -1;
++}
+ int SwosSdlInitSubSystem(Uint32 f) { return SDL_InitSubSystem(f) ? 0 : -1; }
+ SDL_DisplayID SwosSdlDisplayId(int index) {
+   int n = 0;

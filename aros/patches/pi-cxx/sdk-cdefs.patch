@@ -1,0 +1,17 @@
+--- a/include/sys/cdefs.h
++++ b/include/sys/cdefs.h
+@@ -129,7 +129,13 @@
+ 
+ /* Deal with various X/Open Portability Guides and Single UNIX Spec. */
+ #ifdef _XOPEN_SOURCE
+-#if _XOPEN_SOURCE - 0 >= 600
++#if _XOPEN_SOURCE - 0 >= 700
++#define __XSI_VISIBLE           700
++#if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200809L
++#undef _POSIX_C_SOURCE
++#define _POSIX_C_SOURCE         200809L
++#endif
++#elif _XOPEN_SOURCE - 0 >= 600
+ #define __XSI_VISIBLE           600
+ #undef _POSIX_C_SOURCE
+ #define _POSIX_C_SOURCE         200112

@@ -83,6 +83,9 @@ expected_machine = 183 if a.arch == 'aarch64' else 62
 if (len(header) < 64 or header[:6] != b'\x7fELF\x02\x01' or header[7] != 15 or
         int.from_bytes(header[18:20], 'little') != expected_machine):
     raise RuntimeError('output is not ELF64 little-endian AROS for ' + a.arch)
+if a.arch == 'aarch64':
+    subprocess.run(['python3', str(Path(__file__).resolve().parents[1] / 'tests/native/check_pi_tls.py'),
+                    '--readelf', str(a.cc.parent / 'aarch64-aros-readelf'), str(a.out / 'SWOS')], check=True)
 files = [a.out / 'SWOS', sdl_archive]
 if a.backend == 'sdl3':
     for library in ('libGL.a', 'libiconv.a', 'libpthread.a'):

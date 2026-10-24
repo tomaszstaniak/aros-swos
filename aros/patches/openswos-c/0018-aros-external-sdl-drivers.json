@@ -1,0 +1,11 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0017-route-local-matchmaker-address.patch"
+  ],
+  "reason": "Forward explicit AmigaDOS SDL driver variables into the private SDL3 environment before initialization. Set SDL_AUDIODRIVER dummy was ignored on Pi, so even a no-audio smoke launched AHI. Internal replay flags set via SwosSdlSetEnv already selected dummy successfully.",
+  "scope": "AROS SDL3 compatibility boundary; no backend/library/system changes",
+  "sha256": "653b4aae76e581ba6efa443e935d21f83eddc291cb912a4263393d667f8739e8",
+  "verification": "2026-10-24 rpi-1 AArch64/v1: same native probe with old boundary prints missing; FAIL, new boundary dummy; PASS. Full network-enabled game rebuilt with upstream TLS fix; ordinary silent intro, title, main menu and keyboard navigation into FRIENDLY options passed. Older v11 release remains unchanged.",
+  "upstream_status": "application compatibility with pinned SDL3 3.4.12; not a replacement AROS implementation"
+}

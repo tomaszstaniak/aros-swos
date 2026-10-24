@@ -121,3 +121,13 @@ Compile/link acceptance is distinct from native execution: the probe must still
 run with return0 and print `native-cxx 6` on the matching native installation.
 The complete game, networking match, controls and performance also remain
 unverified on Pi while ordinary pool exchange is unavailable.
+
+## Native runtime checks, 2026-10-24
+
+The rpi-1 pilot can run application smoke tests using a private directory on its stopped system SD, even though USB exchange and networking remain unaccepted. Those limitations do not prevent an offline game start. The current test left system files unchanged.
+
+The original full Pi build was rejected by the native loader at ELF TLS relocation549. Its libc++abi snapshot predates the existing [AROS fix7654818](https://github.com/aros-development-team/AROS/commit/7654818bf1acd25b11cd840a713dc97692bfff55). The builder now applies that imported hunk to an owned overlay, retaining threads and exceptions through libc++abi's pthread fallback. No new upstream fix or submission is claimed. A native containers/throw-catch probe printed `native-cxx6` (with a space before6) and returned to Shell. Probe and complete game have no native ELF TLS relocations.
+
+The selected SDL3 has a private environment: the old boundary did not import explicit AmigaDOS driver selections. Patch18 forwards SDL_AUDIODRIVER and SDL_VIDEODRIVER before initialization. The same native environment probe printed `missing; FAIL` against the old adapter and `dummy; PASS` against the new one. With dummy audio, the full network-enabled game displayed normal intro/title/main menu and accepted keyboard input into FRIENDLY options; a recorded match also rendered in its SDL3 window. No network session, physical pad, complete played Pi match, audio output or real-Pi performance claim follows from this smoke.
+
+Without the working dummy override, startup wedged the QEMU pilot with the host stack inside bcm2835_dma_write. The same emulator rendered the game with dummy audio. The saved samples identify the stalled host path, not a demonstrated defect in the game's renderer or in real hardware. The experimental Pi launcher therefore selects silent audio until hardware feedback is available.
