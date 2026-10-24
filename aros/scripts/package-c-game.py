@@ -87,6 +87,10 @@ files['port-source/packaging/ReadMe.txt'] = files['ReadMe.txt']
 # Full compiler commands and SDK paths stay in the private build receipt.
 public_receipt = {k: v for k, v in receipt.items() if k != 'command'}
 public_receipt['sha256'] = {Path(name).name: digest for name, digest in receipt['sha256'].items()}
+for name in ('compiler', 'cxx'):
+    if public_receipt.get(name):
+        public_receipt[name] = '\n'.join(line for line in public_receipt[name].splitlines()
+                                          if not line.startswith('InstalledDir:')) + '\n'
 files['build.json'] = json.dumps(public_receipt, indent=2).encode() + b'\n'
 manifest = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
 files['SHA256SUMS'] = ''.join(digest + '  ' + name + '\n' for name, digest in manifest.items()).encode()
