@@ -23,10 +23,11 @@ or, for fullscreen with sharp pixel scaling:
 
 The CPU renderer is the default. OpenGL is optional: start SWOS with
 --renderer=accel instead of --renderer=software to compare on your hardware.
-On AROS, changing fullscreen while acceleration is active is disabled to avoid
-reopening a native window still referenced by OpenGL. Use the CPU renderer for
-live toggling. Accelerated fullscreen must be selected before starting the game;
-this does not claim a fix to the SDL3 GL window/context lifetime problem.
+Alt+Enter changes fullscreen. With acceleration the renderer and textures are
+recreated before the native window is replaced; if GL recreation fails, the
+game tries the CPU renderer. This path passed v11 softpipe tests; confirmation
+on real GPU drivers is still needed. Start forces windowed mode and
+Start-Fullscreen forces desktop fullscreen, independently of SWOS.ini.
 A missing bootstrap graphics bank now shows an import-data message and exits.
 VSync depends on the SDL3/driver path; this candidate does not claim tear-free
 presentation. Sound needs an AHI device configured in AROS.

@@ -1,0 +1,26 @@
+OpenSWOS accel-probe3, 2026-10-25, AROS x86_64 ABIv11 ONLY.
+
+Back up your installed SWOS and Start scripts. Copy these files into the SAME
+installed game directory; keep your own original SWOS data there.
+Start / Start-Fullscreen choose CPU, windowed/fullscreen explicitly.
+Start-Accel / Start-Fullscreen-Accel choose OpenGL explicitly.
+Alt+Enter now switches fullscreen with OpenGL: textures and the renderer are
+destroyed BEFORE native-window changes and recreated afterwards. If GL rebuild
+fails, the game tries a CPU renderer; fatal restore failure requests clean exit.
+Native v11:8GL transitions with9pixel readbacks pass; full game4Alt+Enter
+transitions, visible main menu in both modes, normal X quit RC0.
+Final CPU-only framebuffer fallback hint tested with failure doubles and builds.
+GT220 live switching still requires hardware confirmation. Earlier GT220
+feedback confirmed probe1 windowed startup and probe2 fullscreen startup.
+The report of ordinary Start opening fullscreen despite fullscreen=off is still
+under investigation: its actual Start contents/log are pending. These scripts
+pass --fullscreen=off/desktop explicitly; do not delete SWOS.ini.
+CPU remains the default. No VSync/tearing fix claimed. No original game assets.
+No full match, live GT220 transition, Pi runtime or mainline v1 runtime test of
+this change is claimed. Existing apkg rc2 packages are unchanged.
+
+Corresponding sources: unchanged openswos-0.1.0-rc2-sources.tar.gz from the same
+release (SHA25611695b88cc1b5308b0628faea544d69767b92c33950e423fe77b4db0a4aa85b1)
+plus openswos-accel-probe3-20261025-source-delta.tar.gz. This delta includes SDL
+patches6+7 and application patch20; earlier probe deltas are unnecessary.
+Binary SHA256: 0a98d03083427b9841f1d26b9796873149ccd1fd745eb10b6e1da760dbd775e4

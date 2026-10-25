@@ -1,0 +1,113 @@
+--- a/src/platform_sdl.c
++++ b/src/platform_sdl.c
+@@ -1140,21 +1140,100 @@
+     if (s_window)   { SDL_DestroyWindow(s_window);     s_window = NULL; }
+ }
+ 
++#if defined(__AROS__) && defined(SWOS_SDL3_BUILD)
++/* Close every GL resource while its Intuition window is still alive. The AROS
++ * SDL backend replaces that window during fullscreen/border changes. */
++static void aros_release_renderer(void)
++{
++    if (!s_renderer) return;
++    for (int ti = 0; ti < PLATFORM_TEX_RING; ++ti) {
++        if (s_textures[ti]) SDL_DestroyTexture(s_textures[ti]);
++        s_textures[ti] = NULL;
++    }
++    if (s_scale_target) SDL_DestroyTexture(s_scale_target);
++    s_scale_target = NULL;
++    s_scale_n = 0;
++    CrtEffects_Shutdown();
++    SDL_DestroyRenderer(s_renderer);
++    s_renderer = NULL;
++}
++
++static int aros_restore_renderer(Uint32 flags)
++{
++    s_renderer = SDL_CreateRenderer(s_window, -1, flags);
++    if (!s_renderer) return -1;
++    int hardware = (flags & SDL_RENDERER_ACCELERATED) != 0;
++    s_vsync_enabled = 0;
++    s_scale_targets_ok = 0;
++    SDL_RendererInfo info;
++    if (SDL_GetRendererInfo(s_renderer, &info) == 0) {
++        s_scale_targets_ok = (info.flags & SDL_RENDERER_TARGETTEXTURE) != 0;
++        if (hardware)
++            s_vsync_enabled = (info.flags & SDL_RENDERER_PRESENTVSYNC) != 0;
++        fprintf(stderr, "[render] fullscreen renderer=%s vsync=%s\n",
++                info.name ? info.name : "?", s_vsync_enabled ? "on" : "off");
++    }
++    apply_picture_scaling();
++    s_tex_idx = 0;
++    for (int ti = 0; ti < PLATFORM_TEX_RING; ++ti) {
++        s_textures[ti] = SDL_CreateTexture(s_renderer,
++                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
++                _screen_width, PLATFORM_TEX_H);
++        if (!s_textures[ti]) {
++            aros_release_renderer();
++            return -1;
++        }
++    }
++    /* Publish CPU fallback only after every texture is ready: the timer may
++     * start software rendering as soon as it observes this flag. */
++    s_renderer_is_hw = hardware;
++    return 0;
++}
++
++static void aros_toggle_accel_fullscreen(void)
++{
++    Uint32 before = SDL_GetWindowFlags(s_window);
++    Uint32 renderer_flags = SDL_RENDERER_ACCELERATED |
++        (s_vsync_enabled ? SDL_RENDERER_PRESENTVSYNC : 0);
++    int leaving = (before & SDL_WINDOW_FULLSCREEN) != 0;
++    int failed = 0;
++    SDL_LockMutex(s_render_mtx);
++    aros_release_renderer();
++    if (!SDL_SetWindowFullscreen(s_window, !leaving))
++        fprintf(stderr, "[render] fullscreen request failed: %s\n", SDL_GetError());
++    int fullscreen = (SDL_GetWindowFlags(s_window) & SDL_WINDOW_FULLSCREEN) != 0;
++    SDL_SetWindowBordered(s_window, !fullscreen);
++    if (!fullscreen) {
++        SDL_SetWindowSize(s_window,
++            s_pinned_w > 0 ? s_pinned_w : _screen_width * s_win_scale_current,
++            s_pinned_h > 0 ? s_pinned_h : _screen_height * s_win_scale_current);
++    }
++    if (aros_restore_renderer(renderer_flags) < 0) {
++        fprintf(stderr, "[render] cannot rebuild accelerated renderer: %s; trying CPU\n",
++                SDL_GetError());
++        /* CPU fallback must not create SDL's optional GL window framebuffer. */
++        SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "0");
++        if (aros_restore_renderer(SDL_RENDERER_SOFTWARE) < 0) failed = 1;
++    }
++    SDL_ShowCursor(fullscreen ? SDL_DISABLE : SDL_ENABLE);
++    SDL_UnlockMutex(s_render_mtx);
++    if (failed) {
++        fprintf(stderr, "[render] cannot restore renderer after fullscreen: %s\n",
++                SDL_GetError());
++        Platform_RequestQuit();
++        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenSWOS: video",
++                "Cannot restore the renderer after changing fullscreen. OpenSWOS will close.",
++                NULL);
++    }
++}
++#endif
++
+ void Platform_ToggleFullscreen(void)
+ {
+     if (!s_window) return;
+ #if defined(__AROS__) && defined(SWOS_SDL3_BUILD)
+-    /* The pinned AROS backend reopens the Intuition window, while GL retains
+-     * its old raster target. Do not close that target under a live renderer.
+-     * Software fullscreen still works; accelerated fullscreen can be selected
+-     * at launch, before renderer/context creation. */
+     if (s_renderer_is_hw) {
+-        const char *message =
+-            "Changing fullscreen while using acceleration is currently disabled.\n"
+-            "Restart with fullscreen selected, or use the CPU renderer to toggle it.";
+-        fprintf(stderr, "[render] %s\n", message);
+-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
+-                                 "OpenSWOS: fullscreen", message, NULL);
++        aros_toggle_accel_fullscreen();
+         return;
+     }
+ #endif

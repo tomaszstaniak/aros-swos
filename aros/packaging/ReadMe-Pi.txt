@@ -34,9 +34,10 @@ and start SWOS --renderer=software directly. AHI startup hung the QEMU pilot;
 working audio is not claimed. Do not change ENVARC for this experiment.
 
 FULLSCREEN
-CPU fullscreen is supported. Live accelerated fullscreen switching is disabled
-on AROS to avoid reopening the native window under its OpenGL context. This is
-a safety guard, not a GL backend repair. CPU rendering remains the default.
+CPU fullscreen is supported and remains the default. The source now recreates
+renderer/textures for accelerated fullscreen changes; this was tested on v11
+softpipe, not on Pi. Pi accelerated rendering remains unverified. Start forces
+windowed mode and Start-Fullscreen forces desktop fullscreen.
 
 CONTROLS AND SAVES
 Cursor keys move; CTRL/Return fires or confirms. Remap keys in OPTIONS/CONTROLS.

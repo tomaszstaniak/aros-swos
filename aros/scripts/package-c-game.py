@@ -71,7 +71,7 @@ for name in ['scripts/build-c-game.py', 'scripts/build-c-deps.py', 'upstreams.js
     files['port-source/' + name] = (ROOT / name).read_bytes()
 for license_file in sorted((ROOT / 'packaging/licenses').glob('*.txt')):
     files['licenses/' + license_file.name] = license_file.read_bytes()
-files['Start'] = b'FailAt 21\nStack 2000000\nSWOS --renderer=software --scale=3 --scaling=sharp\n'
+files['Start'] = b'FailAt 21\nStack 2000000\nSWOS --renderer=software --fullscreen=off --scale=3 --scaling=sharp\n'
 files['Start-Fullscreen'] = b'FailAt 21\nStack 2000000\nSWOS --renderer=software --fullscreen=desktop --scaling=sharp\n'
 if pi:
     for name in ('Start', 'Start-Fullscreen'):

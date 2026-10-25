@@ -17,3 +17,4 @@
 0017-route-local-matchmaker-address.patch
 0018-aros-external-sdl-drivers.patch
 0019-aros-missing-data-fullscreen-guard.patch
+0020-aros-live-fullscreen-renderer.patch
