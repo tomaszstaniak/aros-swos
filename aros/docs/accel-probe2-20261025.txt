@@ -1,0 +1,21 @@
+OpenSWOS accel-probe2 (2026-10-25), AROS x86_64 ABIv11.
+Experimental replacement executable for rc2 and accel-probe1.
+Back up the installed SWOS; replace only SWOS in its existing directory.
+Use Start for windowed or Start-Fullscreen with renderer=accel for fullscreen.
+The explicit fullscreen command is:
+SWOS --renderer=accel --fullscreen=desktop --scaling=sharp
+Live accelerated fullscreen switching remains blocked by a requester.
+
+Retrofaza confirmed probe1 windowed startup works on GT220. Probe2 retains
+that change and fixes SDL3 fullscreen entry ordering plus an unwanted windowed
+restore-position move after fullscreen creation. GT220 fullscreen confirmation
+is still needed. CPU/software in apkg remains the normal fallback.
+No original SWOS assets are included. Application sources unchanged from rc2.
+
+Corresponding source: unchanged openswos-0.1.0-rc2-sources.tar.gz from this
+release, SHA25611695b88cc1b5308b0628faea544d69767b92c33950e423fe77b4db0a4aa85b1,
+plus openswos-accel-probe2-20261025-source-delta.tar.gz (contains both patches6+7).
+
+Native v11 check: borderless fullscreen intro, no Workbench title bar.
+GT220 fullscreen, full-match/quit and Pi execution still unverified.
+Binary SHA256: 8cb00416f9ad349907bdafabe679dcee17b57c0ca53a015918721b653fcf66cf

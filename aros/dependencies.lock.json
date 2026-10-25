@@ -13,7 +13,7 @@
     "version": "3.4.12",
     "archive_sha256": "f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7",
     "patch_series": "patches/sdl3/series",
-    "source_manifest_sha256": "43b1793aedeee56afdd572a9632f50968e86a28c189f1123ec1502a280396033"
+    "source_manifest_sha256": "1bfd712496b21e947648c4158b41a21a84c71c230e09acc0f8c587c6229114c3"
   },
   "libiconv": {
     "version": "1.19",

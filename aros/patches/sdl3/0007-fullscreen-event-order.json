@@ -1,0 +1,16 @@
+{
+  "base": "SDL3 3.4.12",
+  "predecessors": [
+    "0001-aros-port.patch",
+    "0002-langinfo-guard.patch",
+    "0003-hidden-window-framebuffer.patch",
+    "0004-text-input.patch",
+    "0005-joystick-instance-ids.patch",
+    "0006-preserve-opengl-window.patch"
+  ],
+  "sha256": "1b9b7d830a0376f26e5006885a42c7ecc534b00e3cc13c1c625ac1d4809f48a4",
+  "purpose": "Use backend fullscreen request while SDL3 logical flags still hold the pre-transition state; leave logical flag commits to SDL core. Do not apply a windowed restore-position request to an active fullscreen native window.",
+  "verification": "Production-function old enter fails; patched enter/leave and fullscreen restore-position tests pass. Builds v11/v1/Pi pass. Native v11 probe enters borderless1024x768, RC0; probe then exercises an unrelated SetWindowSize fullscreen defect (748px). Full game with explicit desktop fullscreen and final relinked SDL renders intro without window borders or Workbench title bar. Full match/normal quit in fullscreen, GT220 fullscreen and Pi runtime not verified. Live accelerated toggle guard remains.",
+  "upstream_status": "local-only; runtime verification pending",
+  "upstream_checked_head": "45327d2cee6bf27830de1ecef816804dc9259560"
+}

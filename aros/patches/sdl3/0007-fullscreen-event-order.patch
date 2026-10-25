@@ -1,0 +1,30 @@
+--- a/src/video/aros/SDL_aroswindow.c
++++ b/src/video/aros/SDL_aroswindow.c
+@@ -181,11 +181,13 @@
+             if (wd->win == NULL) {
+                 AROS_ShowWindow_Internal(_this, wd->window);
+             } else {
+-                if ((wd->window->flags & SDL_WINDOW_FULLSCREEN) == SDL_WINDOW_FULLSCREEN) {
++                /* SDL3 commits the logical fullscreen flag after this callback.
++                 * The backend request is already available in winflags. */
++                if (wd->winflags & SDL_AROS_WINDOW_FULLSCREEN) {
+                     AROS_RecreateWindow(_this, wd->window);
+-                } else if (wd->winflags & SDL_AROS_WINDOW_FULLSCREEN_DESKTOP) {
++                } else if ((wd->window->flags & SDL_WINDOW_FULLSCREEN) ||
++                           (wd->winflags & SDL_AROS_WINDOW_FULLSCREEN_DESKTOP)) {
+                     wd->winflags &= ~SDL_AROS_WINDOW_FULLSCREEN_DESKTOP;
+-                    wd->window->flags &= ~SDL_WINDOW_FULLSCREEN;
+                     AROS_RecreateWindow(_this, wd->window);
+                 }
+             }
+@@ -266,6 +268,10 @@
+ bool
+ AROS_SetWindowPosition(SDL_VideoDevice *_this, SDL_Window * window)
+ {
++    /* SDL3 stores this request for the windowed restore position. */
++    if (window->flags & SDL_WINDOW_FULLSCREEN) {
++        return true;
++    }
+ 	SDL_WindowData *data = (SDL_WindowData *) window->internal;
+ 
+ 	D(bug("[SDL3:aroswindow] %s: 0x%08lx\n", __func__, data->win));

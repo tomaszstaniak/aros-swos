@@ -32,7 +32,7 @@ int main(int argc,char **argv) {
  if(!strcmp(argv[3],"fullscreen"))flags|=SDL_WINDOW_FULLSCREEN;
  w=SDL_CreateWindow("OpenSWOS geometry probe",736,544,flags);if(!w)goto end;
  snapshot(f,"created",w,NULL);
- SDL_SetWindowSize(w,736,544);
+ if(strcmp(argv[3],"fullscreen")) SDL_SetWindowSize(w,736,544);
  snapshot(f,"post-fit",w,NULL);
  r=SDL_CreateRenderer(w,argv[2]);if(!r)goto end;
  fprintf(f,"renderer=%s\n",SDL_GetRendererName(r));snapshot(f,"renderer-created",w,r);

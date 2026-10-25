@@ -4,3 +4,4 @@
 0004-text-input.patch
 0005-joystick-instance-ids.patch
 0006-preserve-opengl-window.patch
+0007-fullscreen-event-order.patch
