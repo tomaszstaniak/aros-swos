@@ -1,0 +1,16 @@
+{
+  "base": "SDL3 3.4.12",
+  "predecessors": [
+    "0001-aros-port.patch",
+    "0002-langinfo-guard.patch",
+    "0003-hidden-window-framebuffer.patch",
+    "0004-text-input.patch",
+    "0005-joystick-instance-ids.patch"
+  ],
+  "sha256": "200e2274b8b9c6d6a192669bc9fe06ed78be155e083bfbd9278122f7588a21a0",
+  "purpose": "Enable OpenGL on an existing native Intuition window without recreating it and losing its fitted client geometry.",
+  "verification": "v11, v1 and AArch64 builds passed. Native v11 original probe fails geometry736x544->720x498; patched probe preserves client736x544 and native pointer, RC0. CPU control RC0. Direct full-game launch with exact Start accel arguments displayed intro; X close returned to Shell. Repeated wrapper launch was invalid (empty log); do not use as game acceptance. Mainline v1 probe crashes in mesa3dgl26.library linear_zalloc_child before renderer creation.",
+  "upstream_status": "local-only; submission pending native v11 verification",
+  "upstream_checked_head": "45327d2cee6bf27830de1ecef816804dc9259560",
+  "upstream_checked_date": "2026-10-25"
+}

@@ -1,0 +1,36 @@
+--- a/src/video/aros/SDL_arosvideo.c
++++ b/src/video/aros/SDL_arosvideo.c
+@@ -345,6 +345,23 @@
+ 	return ptrObj;
+ }
+ 
++#if SDL_VIDEO_OPENGL
++/* A native Intuition window does not need a different visual for OpenGL.
++ * Keep it when SDL enables GL for a renderer: recreation otherwise discards
++ * the client's fitted size and closes/reopens its public/custom screen. */
++static bool
++AROS_ReconfigureWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_WindowFlags flags)
++{
++    SDL_WindowData *data = window->internal;
++    (void)_this;
++    if (flags != SDL_WINDOW_OPENGL || (window->flags & SDL_WINDOW_EXTERNAL) ||
++        !data || !data->win) {
++        return SDL_Unsupported();
++    }
++    return true;
++}
++#endif
++
+ static SDL_VideoDevice *
+ AROS_CreateDevice(void)
+ {
+@@ -404,6 +421,9 @@
+ 			device->SuspendScreenSaver = AROS_SuspendScreenSaver;
+ 			device->PumpEvents = AROS_PumpEvents;
+ 			device->CreateSDLWindow = AROS_CreateWindow;
++#if SDL_VIDEO_OPENGL
++            device->ReconfigureWindow = AROS_ReconfigureWindow;
++#endif
+ 			device->SetWindowTitle = AROS_SetWindowTitle;
+ 			device->SetWindowIcon = AROS_SetWindowIcon;
+ 			device->SetWindowPosition = AROS_SetWindowPosition;

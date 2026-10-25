@@ -3,3 +3,4 @@
 0003-hidden-window-framebuffer.patch
 0004-text-input.patch
 0005-joystick-instance-ids.patch
+0006-preserve-opengl-window.patch

@@ -1,0 +1,25 @@
+OpenSWOS accel-probe1, 2026-10-25, x86_64 AROS ABIv11 only.
+
+Experimental replacement executable for rc2. Keep your current SWOS binary as
+SWOS.backup, copy this SWOS into the SAME installed game folder, and launch the
+usual Start script with --renderer=accel. Keep your existing original data.
+This ZIP contains no original Sensible Soccer / SWOS data.
+
+Purpose: enable OpenGL on the existing Intuition window, avoiding SDL native
+window recreation that discards its fitted client dimensions. Native v11 probe:
+old736x544 ->720x498 (FAIL); new736x544, same native window (PASS, RC0).
+Full game: direct accel launch, intro rendering and X close to Shell observed.
+This DOES NOT establish that the GT220 black/gray startup problem is fixed.
+Please report whether startup now draws correctly, and retain SWOS.log.
+VSync remains off as configured; live accel fullscreen is still guarded.
+CPU/software and published apkg rc2 remain the normal fallback.
+Mainline v1 probe crashed in mesa3dgl26.library linear_zalloc_child before GL
+renderer creation; real GT220 and Raspberry Pi execution of this change untested.
+
+Binary SHA256: a3a8189fc06a86027154c2879545694a510d82db3e8a361dfc1facb2bad86326
+
+Corresponding source: SAME release's openswos-0.1.0-rc2-sources.tar.gz
+SHA25611695b88cc1b5308b0628faea544d69767b92c33950e423fe77b4db0a4aa85b1
+plus openswos-accel-probe1-20261025-source-delta.tar.gz.
+The delta contains SDL patch6, updated dependency lock, build receipt, native
+probe and instructions. Application C sources are unchanged from rc2.
