@@ -2,7 +2,7 @@
 
 This fork ports benbaker76/OpenSWOS at `6b5997b68c5bc84dd4905a6eeab44fd412e7821d` to AROS using SDL3. The `aros` branch contains the game changes. Ordered patches, dependency pins and build scripts are preserved here for rebuilding without modifying a clean upstream checkout.
 
-The first release targets x86_64 ABIv11. CPU rendering is the default, with optional OpenGL. Original SWOS data is not included: use `swosdata` to import your own copy as described in [the player instructions](packaging/ReadMe.txt).
+Release [0.1.0-rc3](https://github.com/tomaszstaniak/aros-swos/releases/tag/v0.1.0-rc3) provides x86_64 ABIv11 and experimental Raspberry Pi AArch64 ABIv1 packages. CPU rendering is the default, with optional OpenGL. Accelerated Alt+Enter recreates the renderer safely across native-window changes; v11 tests and GT220 user feedback passed. Original SWOS data is not included: use `swosdata` to import your own copy as described in [the player instructions](packaging/ReadMe.txt).
 
 ## Rebuild
 

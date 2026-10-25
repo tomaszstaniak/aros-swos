@@ -25,8 +25,8 @@ The CPU renderer is the default. OpenGL is optional: start SWOS with
 --renderer=accel instead of --renderer=software to compare on your hardware.
 Alt+Enter changes fullscreen. With acceleration the renderer and textures are
 recreated before the native window is replaced; if GL recreation fails, the
-game tries the CPU renderer. This path passed v11 softpipe tests; confirmation
-on real GPU drivers is still needed. Start forces windowed mode and
+game tries the CPU renderer. This path passed v11 softpipe tests and received
+working GT220 feedback. Start forces windowed mode and
 Start-Fullscreen forces desktop fullscreen, independently of SWOS.ini.
 A missing bootstrap graphics bank now shows an import-data message and exits.
 VSync depends on the SDL3/driver path; this candidate does not claim tear-free

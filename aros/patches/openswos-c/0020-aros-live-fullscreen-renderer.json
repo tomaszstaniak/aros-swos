@@ -23,6 +23,6 @@
   ],
   "sha256": "dc7ede4bd7ccd4af8fc8fcdc5fc6e24463144d851a40f22f4434f47cd044e5ff",
   "purpose": "Destroy GL renderer and all textures while old native window is valid, change fullscreen, recreate renderer/textures; CPU fallback and clean quit on failure.",
-  "verification": "Production-function regression:12GL transitions plus GL-context/texture/fatal allocation failures pass. Missing-data/CPU checks pass. Native v11 production-function probe:8GL transitions,9matching colour readbacks, correct window/fullscreen geometry, RC0. Full game:4Alt+Enter transitions, main menu drawn fullscreen and windowed, normal X quit RC0. Last CPU-only framebuffer-disable hint covered by host failure tests and final v11 build/v1+Pi changed-file compilation; native success path unchanged. GT220 live toggle/Pi runtime unverified.",
+  "verification": "Production-function regression:12GL transitions plus GL-context/texture/fatal allocation failures pass. Missing-data/CPU checks pass. Native v11 production-function probe:8GL transitions,9matching colour readbacks, correct window/fullscreen geometry, RC0. Full game:4Alt+Enter transitions, main menu drawn fullscreen and windowed, normal X quit RC0. Last CPU-only framebuffer-disable hint covered by host failure tests and final v11 build/v1+Pi changed-file compilation; native success path unchanged. GT220 live toggle/Pi runtime unverified. User confirmed the delivered probe3 works as required on2026-10-25; release authorized.",
   "upstream_status": "local-only"
 }
