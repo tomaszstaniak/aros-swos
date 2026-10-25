@@ -33,3 +33,25 @@ evidence. Pi build/link is separate from native Pi acceptance.
 Current game upstream `35cf61c90238867db75f67d7138641b7245362ec` was also
 inspected: `assets_check.c` still only checks asset data versions. No equivalent
 missing-bootstrap-bank preflight was found there.
+
+Published delivery: [0.1.0-rc2](https://github.com/tomaszstaniak/aros-swos/releases/tag/v0.1.0-rc2),
+public source `94037364b340d5fd381c3157506b8199907f803d`.
+[Index PR41](https://github.com/tomaszstaniak/arospkg-index/pull/41) merged;
+publish workflow40215311053 succeeded and both public v2/v3 indexes were read
+back with ZIP SHA256 `229cc7e41c44f32ee55c75252350a05aff3322c294fab8c16f61295caf281020`.
+Pi's existing package was not changed. This update did not repeat native apkg
+installation or full match/network acceptance; the archive was checked with
+apkg-pack and contains the exact native-tested final binary.
+
+Final native probes: wholly absent assets and removed CJCBITS.RAW each show
+the error requester before the game window; OK returns to Shell with RC20.
+Restored complete assets start normally and window close returns RC0.
+The full underlying GL lifecycle repair remains open, with no reusable SDL
+fix implemented or verified for upstream submission. Existing package/CPU
+behavior is protected by the application guard.
+
+Subsequent Pi follow-up on the same day: the common rc2 fix was runtime-tested
+and published for Pi in the same release; see raspberry-pi.md. The earlier
+"Pi unchanged" statement above describes the initial x86-only publication.
+New user evidence reports incorrect accelerated presentation on x86_64 with
+data, while software works; that startup/resize report remains under diagnosis.

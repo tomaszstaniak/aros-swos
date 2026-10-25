@@ -154,3 +154,14 @@ renderer or real GPU test is claimed; the Pi launcher still uses CPU rendering
 and dummy audio. Sound/network/full match/physical input limitations remain.
 This update belongs to the existing rc2 release, with an architecture-specific
 ZIP and complete Pi sources/runtime snapshot; rc1-pi1 assets remain immutable.
+
+Pi rc2 publication is complete: [shared release](https://github.com/tomaszstaniak/aros-swos/releases/tag/v0.1.0-rc2),
+[index PR42](https://github.com/tomaszstaniak/arospkg-index/pull/42) merged,
+publish40218495812 passed. Public v2/v3 indexes were read back with Pi ZIP SHA256
+`a6c8376818d39fc8e8dd70fb7a4b58992e6beb185f9d59497f941826760edd77`;
+the v11 asset/hash is unchanged. Native verify reported248 files as installed,
+0 changed/missing/foreign. Missing and partial-data runs returned20 after the
+requester; normal silent menu and CTRL into FRIENDLY options passed. Normal
+window quit was not established on the pointer-limited pilot; the bounded smoke
+ended by stopping the owned VM. The owned SWPI1025 SD directory was removed
+before releasing rpi-1. No original assets were published.
