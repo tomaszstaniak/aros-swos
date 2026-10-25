@@ -1,4 +1,4 @@
-> **AROS fork:** [x86_64 ABIv11 release](https://github.com/tomaszstaniak/aros-swos/releases/tag/v0.1.0-rc2) · [Raspberry Pi AArch64 ABIv1 experimental release](https://github.com/tomaszstaniak/aros-swos/releases/tag/v0.1.0-rc1-pi1). Both are in arospkg. Original SWOS data is required and is not included. See [AROS instructions and sources](aros/README.md).
+> **AROS fork:** [x86_64 ABIv11 release](https://github.com/tomaszstaniak/aros-swos/releases/tag/v0.1.0-rc2) · [Raspberry Pi AArch64 ABIv1 experimental release](https://github.com/tomaszstaniak/aros-swos/releases/tag/v0.1.0-rc2). Both are in arospkg. Original SWOS data is required and is not included. See [AROS instructions and sources](aros/README.md).
 
 <p align="center"><img src="docs/images/openswos-logo.png" alt="OpenSWOS" width="420"></p>
 

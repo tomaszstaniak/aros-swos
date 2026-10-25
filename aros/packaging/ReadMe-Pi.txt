@@ -1,8 +1,8 @@
-OpenSWOS for AROS Raspberry Pi - 0.1.0-rc1-pi1 (experimental)
+OpenSWOS for AROS Raspberry Pi - 0.1.0-rc2 (experimental)
 
 TARGET
 Native AROS AArch64 ABIv1. This is not the x86_64 build and not a Linux program.
-CPU rendering is the default. This first Pi package starts silently using SDL's
+CPU rendering is the default. The Pi package starts silently using SDL's
 dummy audio driver: audio and networking still require testing on real hardware.
 
 YOUR OWN GAME DATA IS REQUIRED
@@ -19,6 +19,10 @@ Use your own paths. Alternatively import your own PC copy:
 Keep the shipped data/, data_json/ and setup/ directories beside the converter.
 The created assets/ directory is private game data; retain it for later starts.
 
+MISSING GAME DATA
+Startup checks the eleven bootstrap graphics banks before opening the game.
+If data is absent or incomplete, acknowledge the error and import your copy.
+
 START
   Execute Start
 or:
@@ -28,6 +32,11 @@ The scripts set local Shell variables SDL_AUDIODRIVER=dummy and SWOS_AUDIO_OFF=1
 To try configured AHI on real hardware, use a fresh Shell, set Stack 2000000,
 and start SWOS --renderer=software directly. AHI startup hung the QEMU pilot;
 working audio is not claimed. Do not change ENVARC for this experiment.
+
+FULLSCREEN
+CPU fullscreen is supported. Live accelerated fullscreen switching is disabled
+on AROS to avoid reopening the native window under its OpenGL context. This is
+a safety guard, not a GL backend repair. CPU rendering remains the default.
 
 CONTROLS AND SAVES
 Cursor keys move; CTRL/Return fires or confirms. Remap keys in OPTIONS/CONTROLS.

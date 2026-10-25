@@ -139,3 +139,18 @@ Without the working dummy override, startup wedged the QEMU pilot with the host 
 The 17,574,302-byte ZIP has SHA-256 `ca04daedb1703f2c4982bcd008d32e8c563292a4930a945bf909675d975e2f92`; SWOS has SHA-256 `6393d5886d80ac225ef7cadcd7167c75518d6e914d00f3f80a2df03c81366488`. Native apkg0.4 installed it from a preseeded cache on rpi-1 and reported246 files as installed, none changed/missing/foreign. swosdata imported the owned ADFs on Pi with RC0. The final package launcher opened normal intro/title/main menu after this fresh conversion. Network download cannot be tested on the current pilot.
 
 The VM is stopped/released; the entire owned SWPI1024 test directory was removed from the SD after preserving evidence. No system files, SDK or clean upstream were modified.
+
+## Shared rc2 update, 2026-10-25
+
+The Pi build now includes the same patch19 as v11: check eleven bootstrap
+banks before opening the game and fail required sprite loads once. Native
+rpi-1 cached apkg install/verify of the new ZIP return0. Both an absent assets
+folder and a removed CJCBITS.RAW show the missing-data requester; the normal
+system Amiga+V shortcut acknowledges it and returns to Shell. This is an
+AArch64 ABIv1 test on QEMU raspi3b, not real hardware acceptance.
+
+The accelerated live-fullscreen guard is shared application code. No Pi GL
+renderer or real GPU test is claimed; the Pi launcher still uses CPU rendering
+and dummy audio. Sound/network/full match/physical input limitations remain.
+This update belongs to the existing rc2 release, with an architecture-specific
+ZIP and complete Pi sources/runtime snapshot; rc1-pi1 assets remain immutable.
