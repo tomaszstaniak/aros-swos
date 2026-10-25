@@ -1,0 +1,147 @@
+From: AROS OpenSWOS port
+Subject: Fail cleanly on missing data and guard unsafe accelerated fullscreen
+
+Scope: SDL required sprite loading and AROS startup/fullscreen only.
+The original bank retry loops never pump input when a file is absent.
+The pinned SDL3 AROS native-window reopen leaves GL targeting the old window.
+Reject absent first-menu banks early and fail required sprite loads once.
+Block live accelerated toggles until the native GL lifetime is repaired.
+
+diff --git a/src/assets_check.c b/src/assets_check.c
+--- a/src/assets_check.c
++++ b/src/assets_check.c
+@@ -111,6 +111,41 @@
+     }
+ }
+ 
++/* These banks are needed before the first menu can accept input. The loader
++ * prefers AGA but accepts shared OCS banks; do not reject that supported mix.
++ * This is an early absence check, not validation of every match asset. */
++const char *AssetsCheck_MissingRequired(void)
++{
++    static const char *const banks[] = {
++        "menus.raw", "menus2.raw", "menubg.raw", "cjcgrafs.raw",
++        "cjcbench.raw", "cjcbits.raw", "cjcteam1.raw", "cjcteam2.raw",
++        "cjcteam3.raw", "cjcteamg.raw", "soccer_s.raw"
++    };
++    char path[128];
++    for (unsigned i = 0; i < sizeof banks / sizeof banks[0]; i++) {
++        snprintf(path, sizeof path, "grafs_aga/%s", banks[i]);
++        if (swos_data_exists(path)) continue;
++        snprintf(path, sizeof path, "grafs/%s", banks[i]);
++        if (!swos_data_exists(path)) return banks[i];
++    }
++    return NULL;
++}
++
++/* Required sprite banks used to retry forever, without pumping SDL events.
++ * Fail once instead; AROS main has already registered native_shutdown at exit. */
++void AssetsCheck_FatalMissing(const char *filename)
++{
++    char message[1024];
++    snprintf(message, sizeof message,
++             "Cannot load required SWOS game data: %s\n\n"
++             "Import your own SWOS 96/97 data with swosdata before playing.\n"
++             "See the FIRST INSTALL instructions in ReadMe.\n"
++             "OpenSWOS will now close.", filename ? filename : "(unknown file)");
++    fprintf(stderr, "[assets] %s\n", message);
++    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenSWOS: missing game data", message, NULL);
++    exit(EXIT_FAILURE);
++}
++
+ void AssetsCheck_Run(PlatformInitOptions *opts, const char *iniPath)
+ {
+ #if defined(SWOS_WASM_BUILD) || defined(SWOS_SWITCH_BUILD)
+diff --git a/include/assets_check.h b/include/assets_check.h
+--- a/include/assets_check.h
++++ b/include/assets_check.h
+@@ -9,6 +9,10 @@
+ 
+ /* After SDL_Init: log the parts of the assets folder an older setup made, and once a
+  * set of data versions show the reminder (with "Don't remind me", saved to iniPath). */
++/* A missing first-menu bank, or NULL. Uses the normal case-insensitive roots. */
++const char *AssetsCheck_MissingRequired(void);
++void AssetsCheck_FatalMissing(const char *filename);
++
+ void AssetsCheck_Run(PlatformInitOptions *opts, const char *iniPath);
+ 
+ #endif /* ASSETS_CHECK_H */
+diff --git a/src/main.c b/src/main.c
+--- a/src/main.c
++++ b/src/main.c
+@@ -1213,6 +1213,17 @@
+     /* Keep CPU presentation native; direct GL remains an explicit option. */
+     SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "0");
+ #endif
++#ifdef __AROS__
++    /* A clean package deliberately contains no original SWOS data. Reject it
++     * before audio, window or worker initialization instead of entering the
++     * bootstrap's required-graphics retry loop. */
++    {
++        extern const char *AssetsCheck_MissingRequired(void);
++        extern void AssetsCheck_FatalMissing(const char *filename);
++        const char *missing = AssetsCheck_MissingRequired();
++        if (missing) AssetsCheck_FatalMissing(missing);
++    }
++#endif
+     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS |
+                   SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) != 0) {
+         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
+diff --git a/src/image_cmd.c b/src/image_cmd.c
+--- a/src/image_cmd.c
++++ b/src/image_cmd.c
+@@ -13,6 +13,7 @@
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>   /* getenv — SWOS_DEBUG_SPRITE_LOAD */
++#include "assets_check.h"
+ int _debug_sprite_load = 0;  /* flip to 1 in gdb, or set SWOS_DEBUG_SPRITE_LOAD=1 */
+ __attribute__((constructor))
+ static void unbuf_stderr(void) { setbuf(stderr, NULL); }
+@@ -485,8 +486,8 @@
+ #ifdef SWOS_SDL_BUILD
+             {
+                 uint32_t bankSize = 0;
+-                while (LoadFileEx((uint8_t *)filename, _rawAssetLoadBuffer, &bankSize) != 0)
+-                    ;
++                if (LoadFileEx((uint8_t *)filename, _rawAssetLoadBuffer, &bankSize) != 0)
++                    AssetsCheck_FatalMissing((const char *)filename);
+                 /* Auto-detect this bank's bitplane depth from its decompressed
+                  * size (320x256 planar sheet: 40 bytes/plane row * 256 rows).
+                  * 4bpp for cjc / team kits, 8bpp for soccer_s. */
+@@ -532,8 +533,8 @@
+ #ifdef SWOS_SDL_BUILD
+             {
+                 uint32_t bankSize = 0;
+-                while (LoadFileEx((uint8_t *)filename, _rawAssetLoadBuffer, &bankSize) != 0)
+-                    ;
++                if (LoadFileEx((uint8_t *)filename, _rawAssetLoadBuffer, &bankSize) != 0)
++                    AssetsCheck_FatalMissing((const char *)filename);
+                 /* Auto-detect this bank's bitplane depth from its decompressed
+                  * size (320x256 planar sheet: 40 bytes/plane row * 256 rows).
+                  * 4bpp for cjc / team kits, 8bpp for soccer_s. */
+diff --git a/src/platform_sdl.c b/src/platform_sdl.c
+--- a/src/platform_sdl.c
++++ b/src/platform_sdl.c
+@@ -1143,6 +1143,21 @@
+ void Platform_ToggleFullscreen(void)
+ {
+     if (!s_window) return;
++#if defined(__AROS__) && defined(SWOS_SDL3_BUILD)
++    /* The pinned AROS backend reopens the Intuition window, while GL retains
++     * its old raster target. Do not close that target under a live renderer.
++     * Software fullscreen still works; accelerated fullscreen can be selected
++     * at launch, before renderer/context creation. */
++    if (s_renderer_is_hw) {
++        const char *message =
++            "Changing fullscreen while using acceleration is currently disabled.\n"
++            "Restart with fullscreen selected, or use the CPU renderer to toggle it.";
++        fprintf(stderr, "[render] %s\n", message);
++        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
++                                 "OpenSWOS: fullscreen", message, NULL);
++        return;
++    }
++#endif
+     Uint32 flags = SDL_GetWindowFlags(s_window);
+     int currently_fullscreen =
+         (flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;

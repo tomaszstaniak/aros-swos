@@ -1213,6 +1213,17 @@ int main(int argc, char **argv)
     /* Keep CPU presentation native; direct GL remains an explicit option. */
     SDL_SetHint(SDL_HINT_FRAMEBUFFER_ACCELERATION, "0");
 #endif
+#ifdef __AROS__
+    /* A clean package deliberately contains no original SWOS data. Reject it
+     * before audio, window or worker initialization instead of entering the
+     * bootstrap's required-graphics retry loop. */
+    {
+        extern const char *AssetsCheck_MissingRequired(void);
+        extern void AssetsCheck_FatalMissing(const char *filename);
+        const char *missing = AssetsCheck_MissingRequired();
+        if (missing) AssetsCheck_FatalMissing(missing);
+    }
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS |
                   SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());

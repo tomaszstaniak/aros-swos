@@ -1,0 +1,11 @@
+{
+  "base": "6b5997b68c5bc84dd4905a6eeab44fd412e7821d",
+  "predecessors": [
+    "0018-aros-external-sdl-drivers.patch"
+  ],
+  "reason": "A fresh data-free installation spins in required sprite load retries; live accelerated fullscreen reopens the native window without rebuilding the GL raster target.",
+  "scope": "Application startup, required sprite loads and AROS SDL3 accelerated toggle protection. No shared SDL/SDK changes; actual accelerated toggle repair remains open.",
+  "sha256": "47276e6a7919a58b664eab5ddf1fd4e64377f6d97da0b49aaf3675da807143f2",
+  "verification": "2026-10-25: production-function regression fails before/passes after both absent-data and partial bootstrap-bank guards; clean series19 reconstruction passes. v11-1 GCC10.5/ABIv11: absent-data requester and OK return; removed CJCBITS.RAW now requester before game window; valid-data intro; CPU fullscreen roundtrip; accel toggle requester and resumed rendering. AArch64/v1 full game builds/links with zero native TLS relocations; new Pi runtime not tested.",
+  "upstream_status": "Application safety fix; reusable SDL GL window-lifecycle fix pending diagnosis/verification, not claimed fixed."
+}

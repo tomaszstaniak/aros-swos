@@ -16,3 +16,4 @@
 0016-aros-report-pthread-context.patch
 0017-route-local-matchmaker-address.patch
 0018-aros-external-sdl-drivers.patch
+0019-aros-missing-data-fullscreen-guard.patch

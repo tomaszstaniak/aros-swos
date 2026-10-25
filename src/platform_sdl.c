@@ -1143,6 +1143,21 @@ void Platform_Shutdown(void)
 void Platform_ToggleFullscreen(void)
 {
     if (!s_window) return;
+#if defined(__AROS__) && defined(SWOS_SDL3_BUILD)
+    /* The pinned AROS backend reopens the Intuition window, while GL retains
+     * its old raster target. Do not close that target under a live renderer.
+     * Software fullscreen still works; accelerated fullscreen can be selected
+     * at launch, before renderer/context creation. */
+    if (s_renderer_is_hw) {
+        const char *message =
+            "Changing fullscreen while using acceleration is currently disabled.\n"
+            "Restart with fullscreen selected, or use the CPU renderer to toggle it.";
+        fprintf(stderr, "[render] %s\n", message);
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
+                                 "OpenSWOS: fullscreen", message, NULL);
+        return;
+    }
+#endif
     Uint32 flags = SDL_GetWindowFlags(s_window);
     int currently_fullscreen =
         (flags & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;

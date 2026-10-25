@@ -111,6 +111,41 @@ static void version_signature(char *out, uint32_t cap)
     }
 }
 
+/* These banks are needed before the first menu can accept input. The loader
+ * prefers AGA but accepts shared OCS banks; do not reject that supported mix.
+ * This is an early absence check, not validation of every match asset. */
+const char *AssetsCheck_MissingRequired(void)
+{
+    static const char *const banks[] = {
+        "menus.raw", "menus2.raw", "menubg.raw", "cjcgrafs.raw",
+        "cjcbench.raw", "cjcbits.raw", "cjcteam1.raw", "cjcteam2.raw",
+        "cjcteam3.raw", "cjcteamg.raw", "soccer_s.raw"
+    };
+    char path[128];
+    for (unsigned i = 0; i < sizeof banks / sizeof banks[0]; i++) {
+        snprintf(path, sizeof path, "grafs_aga/%s", banks[i]);
+        if (swos_data_exists(path)) continue;
+        snprintf(path, sizeof path, "grafs/%s", banks[i]);
+        if (!swos_data_exists(path)) return banks[i];
+    }
+    return NULL;
+}
+
+/* Required sprite banks used to retry forever, without pumping SDL events.
+ * Fail once instead; AROS main has already registered native_shutdown at exit. */
+void AssetsCheck_FatalMissing(const char *filename)
+{
+    char message[1024];
+    snprintf(message, sizeof message,
+             "Cannot load required SWOS game data: %s\n\n"
+             "Import your own SWOS 96/97 data with swosdata before playing.\n"
+             "See the FIRST INSTALL instructions in ReadMe.\n"
+             "OpenSWOS will now close.", filename ? filename : "(unknown file)");
+    fprintf(stderr, "[assets] %s\n", message);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenSWOS: missing game data", message, NULL);
+    exit(EXIT_FAILURE);
+}
+
 void AssetsCheck_Run(PlatformInitOptions *opts, const char *iniPath)
 {
 #if defined(SWOS_WASM_BUILD) || defined(SWOS_SWITCH_BUILD)

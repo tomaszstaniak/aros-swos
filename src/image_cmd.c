@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>   /* getenv — SWOS_DEBUG_SPRITE_LOAD */
+#include "assets_check.h"
 int _debug_sprite_load = 0;  /* flip to 1 in gdb, or set SWOS_DEBUG_SPRITE_LOAD=1 */
 __attribute__((constructor))
 static void unbuf_stderr(void) { setbuf(stderr, NULL); }
@@ -485,8 +486,8 @@ void ProcessImageCommandStream(const uint16_t *cmdBuffer, uint8_t *workBuffer)
 #ifdef SWOS_SDL_BUILD
             {
                 uint32_t bankSize = 0;
-                while (LoadFileEx((uint8_t *)filename, _rawAssetLoadBuffer, &bankSize) != 0)
-                    ;
+                if (LoadFileEx((uint8_t *)filename, _rawAssetLoadBuffer, &bankSize) != 0)
+                    AssetsCheck_FatalMissing((const char *)filename);
                 /* Auto-detect this bank's bitplane depth from its decompressed
                  * size (320x256 planar sheet: 40 bytes/plane row * 256 rows).
                  * 4bpp for cjc / team kits, 8bpp for soccer_s. */
@@ -532,8 +533,8 @@ void ProcessImageCommandStream(const uint16_t *cmdBuffer, uint8_t *workBuffer)
 #ifdef SWOS_SDL_BUILD
             {
                 uint32_t bankSize = 0;
-                while (LoadFileEx((uint8_t *)filename, _rawAssetLoadBuffer, &bankSize) != 0)
-                    ;
+                if (LoadFileEx((uint8_t *)filename, _rawAssetLoadBuffer, &bankSize) != 0)
+                    AssetsCheck_FatalMissing((const char *)filename);
                 /* Auto-detect this bank's bitplane depth from its decompressed
                  * size (320x256 planar sheet: 40 bytes/plane row * 256 rows).
                  * 4bpp for cjc / team kits, 8bpp for soccer_s. */

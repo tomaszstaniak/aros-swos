@@ -1,4 +1,4 @@
-OpenSWOS for AROS 0.1.0-rc1 - SDL3
+OpenSWOS for AROS 0.1.0-rc2 - SDL3
 
 Use the ZIP for your ABI: v11 and v1 are different builds. Extract into a
 writable game drawer, then open a Shell and CD to that drawer.
@@ -23,6 +23,11 @@ or, for fullscreen with sharp pixel scaling:
 
 The CPU renderer is the default. OpenGL is optional: start SWOS with
 --renderer=accel instead of --renderer=software to compare on your hardware.
+On AROS, changing fullscreen while acceleration is active is disabled to avoid
+reopening a native window still referenced by OpenGL. Use the CPU renderer for
+live toggling. Accelerated fullscreen must be selected before starting the game;
+this does not claim a fix to the SDL3 GL window/context lifetime problem.
+A missing bootstrap graphics bank now shows an import-data message and exits.
 VSync depends on the SDL3/driver path; this candidate does not claim tear-free
 presentation. Sound needs an AHI device configured in AROS.
 
@@ -47,8 +52,9 @@ any replay from save/ when reporting a gameplay problem.
 
 STATUS
 This is an early AROS release.
-Pi has a separate network-enabled build; native execution remains unverified
-and it is not included in this ZIP.
+Pi has a separate experimental package. Silent startup/menu and cached apkg
+installation were checked in QEMU; real Pi/audio/full-match checks remain open.
+Pi is not included in this ZIP.
 The Slint setup GUI is not ported; swosdata is the native command-line setup.
 Source pins, reproducible patches and build scripts are under port-source/.
 OpenSWOS is GPLv3; see docs/LICENSE and third-party notices under licenses/.
