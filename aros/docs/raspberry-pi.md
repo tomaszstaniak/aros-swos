@@ -20,6 +20,27 @@ The offline binary is a build milestone. It does not establish game execution,
 controls, audio or performance on Pi. The v11 complete network-enabled build
 continues to compile with its own matching dependencies.
 
+## Second build of 0.1.0-rc3 (2026-11-25)
+
+AROS nightlies from 2026-11-24 on changed the layout of the system's task
+structure, so programs built with an earlier SDK do not run there. The second
+Pi build of 0.1.0-rc3 uses the Pi SDK of nightly 2026-11-24 for SDL3, libiconv,
+the C++ runtime, the game and `swosdata`; the game sources and patches are
+those of 0.1.0-rc3. It needs a nightly of 2026-11-24 or later; the first build
+stays for earlier systems.
+
+`build-pi-cxx.py --sdk DIR` selects the SDK (the default stays
+`<toolchain>/sdk`); an SDK whose `sys/cdefs.h` already handles
+`_XOPEN_SOURCE` 700 is used without the header overlay. The compiler wrapper
+reads `RPI_SDK`; export it for the dependency, game and converter builds too.
+Both build scripts now pass `-ffile-prefix-map`, so the programs no longer
+carry the build machine's directories.
+
+Run on rpi-1 (QEMU raspi3b, nightly 2026-11-24): install and verify through
+apkg 0.8.4, native conversion of two Amiga disks (117 game files, 15 AGA
+files, 76 team files), silent intro, main menu and keyboard input into the
+FRIENDLY team menu. Not run: a match, audio, network, real hardware.
+
 ## Sources and dependencies
 
 `dependencies.lock.json` pins the AROS contrib source and archive/patch hashes.

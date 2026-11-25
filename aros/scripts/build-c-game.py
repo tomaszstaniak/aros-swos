@@ -58,10 +58,13 @@ else:
     sdl_flags = '-I' + str(a.sdk.resolve() / 'include/SDL2')
     sdl_libs = '-lSDL2 -lGL'
     sdl_archive = a.sdk / 'lib/libSDL2.a'
+# Keep host directories out of the debug data of the published executable.
+prefix_maps = ''.join(f' -ffile-prefix-map={path}={name}' for path, name in
+                      ((a.source.resolve(), 'openswos'), (a.sdk.resolve(), 'sdk'), (Path.home(), 'build')))
 cmd = ['make' , '-j' + str(a.jobs), 'NETPLAY=' + ('1' if a.netplay == 'on' else '0'), 'UNAME_S=AROS',
        'UNAME_M=' + a.arch, 'X86_64=1' if a.arch == 'x86_64' else 'ARM64=1',
        'CC=' + str(a.cc.absolute()),
-       'ARCHFLAGS=--sysroot=' + str(a.sdk.resolve()) + (' -m64' if a.arch == 'x86_64' else ''),
+       'ARCHFLAGS=--sysroot=' + str(a.sdk.resolve()) + (' -m64' if a.arch == 'x86_64' else '') + prefix_maps,
        'SDL2_CFLAGS=' + sdl_flags,
        'SDL2_LIBS=' + sdl_libs, 'OBJDIR=' + str(a.out / 'obj'),
        'TARGET=' + str(a.out / 'SWOS'), 'OUTDIR=' + str(a.out)]

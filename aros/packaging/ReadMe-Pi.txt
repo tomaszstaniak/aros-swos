@@ -1,9 +1,13 @@
-OpenSWOS for AROS Raspberry Pi - 0.1.0-rc2 (experimental)
+OpenSWOS for AROS Raspberry Pi - 0.1.0-rc3, second build (experimental)
 
 TARGET
 Native AROS AArch64 ABIv1. This is not the x86_64 build and not a Linux program.
 CPU rendering is the default. The Pi package starts silently using SDL's
 dummy audio driver: audio and networking still require testing on real hardware.
+
+REQUIRES
+An AROS nightly of 2026-11-24 or later. For earlier nightlies use the first
+0.1.0-rc3 package from the project page. The game itself is unchanged.
 
 YOUR OWN GAME DATA IS REQUIRED
 No original SWOS data, disk images, teams, music or private saves are included.

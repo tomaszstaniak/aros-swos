@@ -7,6 +7,7 @@ shared SDK. The emitted native-cxx.py is passed to build-c-game.py --cxx.
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -21,6 +22,8 @@ def main():
     for name in ('source', 'toolchain', 'out'):
         parser.add_argument('--' + name, required=True, type=Path)
     parser.add_argument('--jobs', type=int, default=4)
+    parser.add_argument('--sdk', type=Path,
+                        help='SDK to build against (default: <toolchain>/sdk)')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
     source, tools, out = (getattr(args, k).resolve() for k in ('source', 'toolchain', 'out'))
@@ -36,22 +39,28 @@ def main():
     digest = hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     if len(manifest) != pin['files'] or digest != pin['canonical_manifest_sha256']:
         parser.error('runtime sources differ from the recorded snapshot')
-    cdefs = tools / 'sdk/include/sys/cdefs.h'
-    if sha(cdefs) != pin['sdk_cdefs_sha256']:
+    sdk = args.sdk.resolve() if args.sdk else tools / 'sdk'
+    cdefs = sdk / 'include/sys/cdefs.h'
+    # SDKs since November 2026 handle _XOPEN_SOURCE 700 themselves.
+    native_xsi700 = '_XOPEN_SOURCE - 0 >= 700' in cdefs.read_text(errors='replace')
+    if not native_xsi700 and sha(cdefs) != pin['sdk_cdefs_sha256']:
         parser.error('SDK cdefs.h differs; review the overlay before using another SDK')
     out.mkdir(parents=True)
     (out / 'source-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     overlay = out / 'sdk-overlay/include/sys'
     overlay.mkdir(parents=True)
-    shutil.copyfile(cdefs, overlay / 'cdefs.h')
+    if not native_xsi700:
+        shutil.copyfile(cdefs, overlay / 'cdefs.h')
     commands = []
     def run(command, log, cwd=None):
         commands.append(command)
         (out / 'commands.json').write_text(json.dumps(commands, indent=2) + '\n')
         with (out / log).open('w') as stream:
             subprocess.run(command, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT, check=True)
-    run(['patch', '-p1', '-i', str(repo / 'patches/pi-cxx/sdk-cdefs.patch')],
-        'sdk-overlay.log', out / 'sdk-overlay')
+    if not native_xsi700:
+        run(['patch', '-p1', '-i', str(repo / 'patches/pi-cxx/sdk-cdefs.patch')],
+            'sdk-overlay.log', out / 'sdk-overlay')
+    os.environ['RPI_SDK'] = str(sdk)
     # This recorded snapshot predates the upstream AROS TLS-storage fix.
     # Apply it to an owned copy; never edit the supplied runtime tree.
     abi_source = out / 'source-overlay/libcxxabi'
@@ -68,8 +77,11 @@ def main():
         ''.join(f'add_subdirectory("{abi_source if name == "libcxxabi" else source / name}" {name})\n'
                 for name in ('libunwind', 'libcxx', 'libcxxabi')))
     flags = '-D_GNU_SOURCE -nodefaultlibs -I' + str(source / 'libcxxabi/include')
+    # Keep host directories out of assertion strings and debug data.
+    flags += ''.join(f' -ffile-prefix-map={path}={name}' for path, name in
+                     ((source, 'llvm-runtimes'), (out, 'pi-cxx'), (sdk, 'sdk'), (Path.home(), 'build')))
     options = dict(CMAKE_SYSTEM_NAME='Generic', CMAKE_TRY_COMPILE_TARGET_TYPE='STATIC_LIBRARY',
-                   CMAKE_BUILD_TYPE='Release', CMAKE_SYSROOT=str(tools / 'sdk'),
+                   CMAKE_BUILD_TYPE='Release', CMAKE_SYSROOT=str(sdk),
                    CMAKE_POSITION_INDEPENDENT_CODE='OFF', CMAKE_C_FLAGS=flags,
                    CMAKE_CXX_FLAGS=flags + ' -nostdinc++ -D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE',
                    LIBCXX_CXX_ABI='libcxxabi', LIBCXX_HAS_PTHREAD_API='ON',
@@ -92,8 +104,10 @@ def main():
     wrapper = out / 'native-cxx.py'
     wrapper.write_text('#!/usr/bin/env python3\nimport os,sys\nfrom pathlib import Path\n'
         'r=Path(__file__).resolve().parent\nargs=sys.argv[1:]\n'
+        f'os.environ["RPI_SDK"]={str(sdk)!r}\n'
         "flags=['-I'+str(r/'sdk-overlay/include'),'-D_GNU_SOURCE',"
         "'-D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE','-nostdinc++','-nostdlib++',"
+        f"'--sysroot='+{str(sdk)!r},"
         "'-isystem',str(r/'runtime/include/c++/v1')]\n"
         "if not any(a in args for a in ('-c','-E','-S','-M','-MM','-fsyntax-only',"
         "'--version','-dumpmachine','-dumpversion')):\n"
